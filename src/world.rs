@@ -865,6 +865,12 @@ impl World {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.chunks.clear();
+        self.dirty_chunks.clear();
+        self.enchanting_tables.clear();
+    }
+
     pub fn insert_chunk(&mut self, column: ChunkColumn) {
         let (cx, cz) = (column.x, column.z);
         for (sy, sec_opt) in column.sections.iter().enumerate() {
@@ -897,6 +903,10 @@ impl World {
 
     pub fn get_chunk(&self, chunk_x: i32, chunk_z: i32) -> Option<&ChunkColumn> {
         self.chunks.get(&(chunk_x, chunk_z))
+    }
+
+    pub fn contains_chunk(&self, chunk_x: i32, chunk_z: i32) -> bool {
+        self.chunks.contains_key(&(chunk_x, chunk_z))
     }
 
     pub fn get_chunk_mut(&mut self, chunk_x: i32, chunk_z: i32) -> Option<&mut ChunkColumn> {
@@ -966,20 +976,45 @@ impl World {
 
         if new_emit > 0 {
             block.block_light = new_emit;
+        } else if old_emit > 0 || is_opaque_cube(block.id) {
+            block.block_light = 0;
         }
 
         self.set_block_raw(world_x, world_y, world_z, block);
 
         if old_emit > 0 && new_emit < old_emit {
             self.remove_block_light(world_x, world_y, world_z, old_emit);
+            if new_emit > 0 {
+                self.propagate_block_light(world_x, world_y, world_z, new_emit);
+            }
         } else if new_emit > 0 {
             self.propagate_block_light(world_x, world_y, world_z, new_emit);
+        } else if is_opaque_cube(block.id) && old_block.block_light > 0 {
+            self.remove_block_light(world_x, world_y, world_z, old_block.block_light);
+        } else if is_opaque_cube(old_block.id) && !is_opaque_cube(block.id) {
+            let dirs = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)];
+            let mut max_neighbor_light = 0u8;
+            for (dx, dy, dz) in dirs {
+                let nb = self.get_block(world_x + dx, world_y + dy, world_z + dz);
+                if nb.block_light > max_neighbor_light {
+                    max_neighbor_light = nb.block_light;
+                }
+            }
+            if max_neighbor_light > 1 {
+                self.propagate_block_light(world_x, world_y, world_z, max_neighbor_light - 1);
+            }
         }
     }
 
     pub fn propagate_block_light(&mut self, start_x: i32, start_y: i32, start_z: i32, initial_light: u8) {
         if !(0..=255).contains(&start_y) || initial_light == 0 {
             return;
+        }
+
+        let mut start_b = self.get_block(start_x, start_y, start_z);
+        if !is_opaque_cube(start_b.id) && start_b.block_light < initial_light {
+            start_b.block_light = initial_light;
+            self.set_block_raw(start_x, start_y, start_z, start_b);
         }
 
         let mut queue = std::collections::VecDeque::new();
@@ -1031,6 +1066,13 @@ impl World {
             return;
         }
 
+        let mut start_b = self.get_block(start_x, start_y, start_z);
+        let emit = block_emission(start_b.id);
+        if start_b.block_light != emit {
+            start_b.block_light = emit;
+            self.set_block_raw(start_x, start_y, start_z, start_b);
+        }
+
         let mut remove_queue = std::collections::VecDeque::new();
         let mut propagate_queue = std::collections::VecDeque::new();
 
@@ -1063,7 +1105,7 @@ impl World {
                     remove_queue.push_back((nx, ny, nz, nb.block_light));
                     nb.block_light = 0;
                     self.set_block_raw(nx, ny, nz, nb);
-                } else if nb.block_light >= val {
+                } else if nb.block_light >= val && nb.block_light > 0 {
                     propagate_queue.push_back((nx, ny, nz, nb.block_light));
                 }
             }
@@ -1126,6 +1168,181 @@ impl World {
         chunk
             .get_highest_block_y(local_x, local_z)
             .map(|(y, block)| (y as i32, block))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_torch_placement_and_removal() {
+        let mut world = World::new();
+        world.insert_chunk(ChunkColumn::new(0, 0));
+
+        // Place a torch (id: 50) at (8, 64, 8)
+        let torch = Block {
+            id: 50,
+            meta: 5,
+            block_light: 14,
+            sky_light: 0,
+        };
+        world.set_block(8, 64, 8, torch);
+
+        assert_eq!(world.get_block(8, 64, 8).block_light, 14);
+        assert_eq!(world.get_block(9, 64, 8).block_light, 13);
+        assert_eq!(world.get_block(10, 64, 8).block_light, 12);
+        assert_eq!(world.get_block(7, 64, 8).block_light, 13);
+        assert_eq!(world.get_block(8, 65, 8).block_light, 13);
+        assert_eq!(world.get_block(8, 63, 8).block_light, 13);
+
+        // Remove the torch by setting to AIR
+        world.set_block(8, 64, 8, Block::AIR);
+
+        assert_eq!(world.get_block(8, 64, 8).block_light, 0);
+        assert_eq!(world.get_block(9, 64, 8).block_light, 0);
+        assert_eq!(world.get_block(10, 64, 8).block_light, 0);
+        assert_eq!(world.get_block(7, 64, 8).block_light, 0);
+        assert_eq!(world.get_block(8, 65, 8).block_light, 0);
+        assert_eq!(world.get_block(8, 63, 8).block_light, 0);
+    }
+
+    #[test]
+    fn test_torch_removal_with_adjacent_torch() {
+        let mut world = World::new();
+        world.insert_chunk(ChunkColumn::new(0, 0));
+
+        // Place Torch 1 at (5, 64, 5)
+        world.set_block(
+            5,
+            64,
+            5,
+            Block {
+                id: 50,
+                meta: 5,
+                block_light: 14,
+                sky_light: 0,
+            },
+        );
+
+        // Place Torch 2 at (7, 64, 5)
+        world.set_block(
+            7,
+            64,
+            5,
+            Block {
+                id: 50,
+                meta: 5,
+                block_light: 14,
+                sky_light: 0,
+            },
+        );
+
+        // Midpoint (6, 64, 5) has light 13
+        assert_eq!(world.get_block(6, 64, 5).block_light, 13);
+
+        // Remove Torch 1 at (5, 64, 5)
+        world.set_block(5, 64, 5, Block::AIR);
+
+        // Torch 2 at (7, 64, 5) is still 14
+        assert_eq!(world.get_block(7, 64, 5).block_light, 14);
+        // (6, 64, 5) is still 13 from Torch 2
+        assert_eq!(world.get_block(6, 64, 5).block_light, 13);
+        // (5, 64, 5) is now illuminated by Torch 2 with light 12
+        assert_eq!(world.get_block(5, 64, 5).block_light, 12);
+        // (4, 64, 5) is now illuminated with light 11
+        assert_eq!(world.get_block(4, 64, 5).block_light, 11);
+
+        // Remove Torch 2 at (7, 64, 5)
+        world.set_block(7, 64, 5, Block::AIR);
+
+        // All positions should now be 0
+        assert_eq!(world.get_block(7, 64, 5).block_light, 0);
+        assert_eq!(world.get_block(6, 64, 5).block_light, 0);
+        assert_eq!(world.get_block(5, 64, 5).block_light, 0);
+        assert_eq!(world.get_block(4, 64, 5).block_light, 0);
+    }
+
+    #[test]
+    fn test_packet_0x23_emulation_removes_light() {
+        let mut world = World::new();
+        world.insert_chunk(ChunkColumn::new(0, 0));
+
+        // Place Torch
+        world.set_block(
+            8,
+            64,
+            8,
+            Block {
+                id: 50,
+                meta: 5,
+                block_light: 14,
+                sky_light: 0,
+            },
+        );
+        assert_eq!(world.get_block(8, 64, 8).block_light, 14);
+        assert_eq!(world.get_block(9, 64, 8).block_light, 13);
+
+        // Emulate Packet 0x23 server update replacing torch with air
+        let block_id = 0u16;
+        let block_meta = 0u8;
+        let existing = world.get_block(8, 64, 8);
+        world.set_block(
+            8,
+            64,
+            8,
+            Block {
+                id: block_id,
+                meta: block_meta,
+                block_light: block_emission(block_id),
+                sky_light: if is_opaque_cube(block_id) { 0 } else { existing.sky_light },
+            },
+        );
+
+        assert_eq!(world.get_block(8, 64, 8).block_light, 0);
+        assert_eq!(world.get_block(9, 64, 8).block_light, 0);
+        assert_eq!(world.get_block(10, 64, 8).block_light, 0);
+    }
+
+    #[test]
+    fn test_opaque_block_blocks_light() {
+        let mut world = World::new();
+        world.insert_chunk(ChunkColumn::new(0, 0));
+
+        // Place Torch at (5, 64, 5)
+        world.set_block(
+            5,
+            64,
+            5,
+            Block {
+                id: 50,
+                meta: 5,
+                block_light: 14,
+                sky_light: 0,
+            },
+        );
+        assert_eq!(world.get_block(6, 64, 5).block_light, 13);
+        assert_eq!(world.get_block(7, 64, 5).block_light, 12);
+
+        // Place stone (id: 1) at (6, 64, 5)
+        world.set_block(
+            6,
+            64,
+            5,
+            Block {
+                id: 1,
+                meta: 0,
+                block_light: 0,
+                sky_light: 0,
+            },
+        );
+
+        assert_eq!(world.get_block(6, 64, 5).block_light, 0);
+        // (7, 64, 5) dropped from 12 to 10 because direct path through (6, 64, 5) is blocked,
+        // and light must travel 4 Manhattan steps around the stone block (14 - 4 = 10)
+        assert_eq!(world.get_block(7, 64, 5).block_light, 10);
+        // (5, 64, 5) torch still has light 14
+        assert_eq!(world.get_block(5, 64, 5).block_light, 14);
     }
 }
 

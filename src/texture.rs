@@ -255,7 +255,8 @@ const ENDFRAME_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/b
 const ENDFRAME_SIDE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/endframe_side.png");
 const ENDFRAME_EYE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/endframe_eye.png");
 const PORTAL_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/portal.png");
-const END_PORTAL_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/entity/end_portal.png");
+pub const END_SKY_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/environment/end_sky.png");
+pub const END_PORTAL_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/entity/end_portal.png");
 const FIRE_LAYER_0_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/fire_layer_0.png");
 const MUSHROOM_BROWN_SKIN_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/mushroom_block_skin_brown.png");
 const MUSHROOM_RED_SKIN_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/mushroom_block_skin_red.png");
@@ -455,10 +456,13 @@ fn copy_double_chest_tiles(atlas: &mut [u8], base_left: u16, base_right: u16, pn
     image::imageops::overlay(&mut top_l, &top_crop_l, 1, 1);
     copy_raw_tile(atlas, base_left, &top_l);
 
-    // Outer side (left side, 14x14) at (44, 14) + (44, 34)
+    // Outer side (left side, 14x14) at (0, 14) + (0, 34)
+    // On 1.7.10 UV layout, u in [0, 14] runs from back to front; flip horizontally so x=1 is front and x=14 is back.
     let mut side_l = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
-    let lid_side_l = image::imageops::crop_imm(&img, 44, 14, 14, 5).to_image();
-    let base_side_l = image::imageops::crop_imm(&img, 44, 34, 14, 9).to_image();
+    let mut lid_side_l = image::imageops::crop_imm(&img, 0, 14, 14, 5).to_image();
+    let mut base_side_l = image::imageops::crop_imm(&img, 0, 34, 14, 9).to_image();
+    image::imageops::flip_horizontal_in_place(&mut lid_side_l);
+    image::imageops::flip_horizontal_in_place(&mut base_side_l);
     image::imageops::overlay(&mut side_l, &lid_side_l, 1, 2);
     image::imageops::overlay(&mut side_l, &base_side_l, 1, 7);
     copy_raw_tile(atlas, base_left + 1, &side_l);
@@ -474,11 +478,12 @@ fn copy_double_chest_tiles(atlas: &mut [u8], base_left: u16, base_right: u16, pn
     copy_raw_tile(atlas, base_left + 2, &front_l);
 
     // Back of left half (15x14) at (73, 14) and (73, 34)
+    // Left half inner seam is at x=0 (touches right half), 1px outer margin is at x=15
     let mut back_l = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
     let lid_back_l = image::imageops::crop_imm(&img, 73, 14, 15, 5).to_image();
     let base_back_l = image::imageops::crop_imm(&img, 73, 34, 15, 9).to_image();
-    image::imageops::overlay(&mut back_l, &lid_back_l, 1, 2);
-    image::imageops::overlay(&mut back_l, &base_back_l, 1, 7);
+    image::imageops::overlay(&mut back_l, &lid_back_l, 0, 2);
+    image::imageops::overlay(&mut back_l, &base_back_l, 0, 7);
     copy_raw_tile(atlas, base_left + 3, &back_l);
 
     // Right half:
@@ -488,10 +493,11 @@ fn copy_double_chest_tiles(atlas: &mut [u8], base_left: u16, base_right: u16, pn
     image::imageops::overlay(&mut top_r, &top_crop_r, 0, 1);
     copy_raw_tile(atlas, base_right, &top_r);
 
-    // Outer side (right side, 14x14) at (0, 14) + (0, 34)
+    // Outer side (right side, 14x14) at (44, 14) + (44, 34)
+    // On 1.7.10 UV layout, u in [44, 58] runs from front to back; x=1 is front and x=14 is back.
     let mut side_r = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
-    let lid_side_r = image::imageops::crop_imm(&img, 0, 14, 14, 5).to_image();
-    let base_side_r = image::imageops::crop_imm(&img, 0, 34, 14, 9).to_image();
+    let lid_side_r = image::imageops::crop_imm(&img, 44, 14, 14, 5).to_image();
+    let base_side_r = image::imageops::crop_imm(&img, 44, 34, 14, 9).to_image();
     image::imageops::overlay(&mut side_r, &lid_side_r, 1, 2);
     image::imageops::overlay(&mut side_r, &base_side_r, 1, 7);
     copy_raw_tile(atlas, base_right + 1, &side_r);
@@ -507,11 +513,12 @@ fn copy_double_chest_tiles(atlas: &mut [u8], base_left: u16, base_right: u16, pn
     copy_raw_tile(atlas, base_right + 2, &front_r);
 
     // Back of right half (15x14) at (58, 14) and (58, 34)
+    // Right half 1px outer margin is at x=0, inner seam is at x=15 (touches left half)
     let mut back_r = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
     let lid_back_r = image::imageops::crop_imm(&img, 58, 14, 15, 5).to_image();
     let base_back_r = image::imageops::crop_imm(&img, 58, 34, 15, 9).to_image();
-    image::imageops::overlay(&mut back_r, &lid_back_r, 0, 2);
-    image::imageops::overlay(&mut back_r, &base_back_r, 0, 7);
+    image::imageops::overlay(&mut back_r, &lid_back_r, 1, 2);
+    image::imageops::overlay(&mut back_r, &base_back_r, 1, 7);
     copy_raw_tile(atlas, base_right + 3, &back_r);
 }
 
@@ -1538,6 +1545,39 @@ pub fn get_fire_frame_rgba(frame: usize) -> [u8; 16 * 16 * 4] {
     tile
 }
 
+pub fn get_portal_frame_rgba(frame: usize) -> [u8; 16 * 16 * 4] {
+    let bytes = crate::resource_pack::get_texture("textures/blocks/portal.png", PORTAL_BYTES);
+    let img = match image::load_from_memory_with_format(&bytes, image::ImageFormat::Png) {
+        Ok(i) => i.to_rgba8(),
+        Err(_) => return [0u8; 16 * 16 * 4],
+    };
+
+    let (src_w, src_h) = img.dimensions();
+    if src_w == 0 || src_h == 0 {
+        return [0u8; 16 * 16 * 4];
+    }
+    let total_frames = (src_h / src_w).max(1);
+    let frame_idx = (frame as u32) % total_frames;
+    let frame_y = frame_idx * src_w;
+    let cropped = image::imageops::crop_imm(&img, 0, frame_y, src_w, src_w).to_image();
+    let final_tile = if cropped.width() == 16 && cropped.height() == 16 {
+        cropped
+    } else {
+        image::imageops::resize(&cropped, 16, 16, image::imageops::FilterType::Nearest)
+    };
+
+    let mut tile = [0u8; 16 * 16 * 4];
+    for y in 0..16 {
+        for x in 0..16 {
+            let px = final_tile.get_pixel(x, y);
+            let idx = ((y * 16 + x) * 4) as usize;
+            tile[idx..idx + 4].copy_from_slice(&px.0);
+        }
+    }
+
+    tile
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1868,6 +1908,30 @@ mod tests {
         let frame_5 = get_fire_frame_rgba(5);
         assert_eq!(frame_0.len(), 1024);
         assert_eq!(frame_5.len(), 1024);
+
+        // Verify animated nether portal frame extraction (32 frames)
+        let p_frame_0 = get_portal_frame_rgba(0);
+        let p_frame_1 = get_portal_frame_rgba(1);
+        let p_frame_31 = get_portal_frame_rgba(31);
+        assert_eq!(p_frame_0.len(), 1024);
+        assert_eq!(p_frame_1.len(), 1024);
+        assert_eq!(p_frame_31.len(), 1024);
+        assert_ne!(p_frame_0, p_frame_1);
+    }
+
+    #[test]
+    fn test_end_portal_textures() {
+        assert!(!END_SKY_BYTES.is_empty());
+        assert!(!END_PORTAL_BYTES.is_empty());
+
+        let sky_img = image::load_from_memory(END_SKY_BYTES).expect("Valid end_sky image");
+        let portal_img = image::load_from_memory(END_PORTAL_BYTES).expect("Valid end_portal image");
+
+        // Minecraft 1.7.10 official textures
+        assert_eq!(sky_img.width(), 128);
+        assert_eq!(sky_img.height(), 128);
+        assert_eq!(portal_img.width(), 256);
+        assert_eq!(portal_img.height(), 256);
     }
 }
 

@@ -225,30 +225,153 @@ impl SkinManager {
     }
 }
 
-/// Asynchronously fetch a skin by URL or player username and push into pending_skins.
-pub fn fetch_skin_async(player_key: String, skin_url: Option<String>, player_name: String, pending: Arc<Mutex<Vec<(String, Vec<u8>)>>>) {
-    std::thread::spawn(move || {
-        let url = if let Some(u) = skin_url {
-            u
-        } else {
-            format!("https://minotar.net/skin/{}", player_name)
-        };
+pub fn extract_json_string_field(json: &str, field: &str) -> Option<String> {
+    let key = format!("\"{}\"", field);
+    let key_pos = json.find(&key)?;
+    let after_key = &json[key_pos + key.len()..];
+    let colon_pos = after_key.find(':')?;
+    let after_colon = after_key[colon_pos + 1..].trim_start();
+    let quote_start = after_colon.find('"')?;
+    let inner = &after_colon[quote_start + 1..];
+    let quote_end = inner.find('"')?;
+    Some(inner[..quote_end].to_string())
+}
 
-        match ureq::get(&url).call() {
-            Ok(resp) => {
-                let mut bytes = Vec::new();
-                let mut reader = resp.into_body().into_reader();
-                if reader.read_to_end(&mut bytes).is_ok() {
-                    if let Some(rgba) = normalize_skin_to_64x64(&bytes) {
-                        println!("[SKIN] Successfully loaded skin for {}", player_name);
-                        let mut p = pending.lock().unwrap();
-                        p.push((player_key, rgba));
-                    }
-                }
+pub fn extract_skin_url_from_decoded_textures(json: &str) -> Option<String> {
+    let skin_pos = json.find("\"SKIN\"")?;
+    extract_json_string_field(&json[skin_pos..], "url")
+}
+
+pub fn http_get_bytes(url: &str) -> Result<Vec<u8>, std::io::Error> {
+    let resp = ureq::get(url)
+        .call()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    let mut bytes = Vec::new();
+    let mut reader = resp.into_body().into_reader();
+    reader
+        .read_to_end(&mut bytes)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    Ok(bytes)
+}
+
+/// Official Minecraft 1.7.10 skin resolution via Mojang Session Service.
+pub fn fetch_mojang_skin_url(player_name: &str) -> Option<String> {
+    // 1. Resolve UUID from username
+    let profile_url = format!("https://api.mojang.com/users/profiles/minecraft/{}", player_name);
+    let profile_bytes = http_get_bytes(&profile_url).ok()?;
+    let profile_json = String::from_utf8(profile_bytes).ok()?;
+    let uuid = extract_json_string_field(&profile_json, "id")?;
+
+    // 2. Fetch session profile with textures
+    let session_url = format!("https://sessionserver.mojang.com/session/minecraft/profile/{}", uuid);
+    let session_bytes = http_get_bytes(&session_url).ok()?;
+    let session_json = String::from_utf8(session_bytes).ok()?;
+    let base64_val = extract_json_string_field(&session_json, "value")?;
+
+    // 3. Base64-decode textures payload
+    use base64::Engine;
+    let decoded = base64::engine::general_purpose::STANDARD.decode(base64_val.as_bytes()).ok()?;
+    let decoded_str = String::from_utf8(decoded).ok()?;
+    extract_skin_url_from_decoded_textures(&decoded_str)
+}
+
+/// Downloads skin PNG bytes with full fallback chain:
+/// 1. Explicit skin_url (if provided)
+/// 2. Official Mojang Session Service (textures.minecraft.net)
+/// 3. Minotar fallback
+/// 4. MC-Heads fallback
+pub fn download_skin_bytes(player_name: &str, skin_url: Option<&str>) -> Option<Vec<u8>> {
+    if let Some(u) = skin_url {
+        if let Ok(b) = http_get_bytes(u) {
+            return Some(b);
+        }
+    }
+
+    if let Some(mojang_url) = fetch_mojang_skin_url(player_name) {
+        if let Ok(b) = http_get_bytes(&mojang_url) {
+            println!("[SKIN] Fetched official Mojang skin for {} from {}", player_name, mojang_url);
+            return Some(b);
+        }
+    }
+
+    let minotar_url = format!("https://minotar.net/skin/{}", player_name);
+    if let Ok(b) = http_get_bytes(&minotar_url) {
+        println!("[SKIN] Fetched fallback skin for {} from Minotar", player_name);
+        return Some(b);
+    }
+
+    let mcheads_url = format!("https://mc-heads.net/skin/{}", player_name);
+    if let Ok(b) = http_get_bytes(&mcheads_url) {
+        println!("[SKIN] Fetched fallback skin for {} from MC-Heads", player_name);
+        return Some(b);
+    }
+
+    None
+}
+
+pub fn get_cached_skin_bytes(player_name: &str) -> Option<Vec<u8>> {
+    let cache_dir = std::path::Path::new(".skin_cache");
+    let path = cache_dir.join(format!("{}.png", player_name));
+    std::fs::read(path).ok()
+}
+
+pub fn save_skin_to_cache(player_name: &str, bytes: &[u8]) {
+    let cache_dir = std::path::Path::new(".skin_cache");
+    let _ = std::fs::create_dir_all(cache_dir);
+    let path = cache_dir.join(format!("{}.png", player_name));
+    let _ = std::fs::write(path, bytes);
+}
+
+pub fn load_local_skin_file(player_name: &str) -> Option<Vec<u8>> {
+    let candidates = [
+        format!("skins/{}.png", player_name),
+        format!("assets/skins/{}.png", player_name),
+    ];
+    for c in &candidates {
+        if let Ok(bytes) = std::fs::read(c) {
+            if let Some(rgba) = normalize_skin_to_64x64(&bytes) {
+                return Some(rgba);
             }
-            Err(e) => {
-                println!("[SKIN] Could not fetch skin for {}: {:?}", player_name, e);
+        }
+    }
+    if player_name == "local" {
+        return load_local_custom_skin();
+    }
+    None
+}
+
+/// Asynchronously fetch a skin with local file, disk cache, and official Mojang network lookups.
+pub fn fetch_skin_async(
+    player_key: String,
+    skin_url: Option<String>,
+    player_name: String,
+    pending: Arc<Mutex<Vec<(String, Vec<u8>)>>>,
+) {
+    if let Some(rgba) = load_local_skin_file(&player_name) {
+        println!("[SKIN] Using local skin file for {}", player_name);
+        let mut p = pending.lock().unwrap();
+        p.push((player_key, rgba));
+        return;
+    }
+
+    if let Some(cached_bytes) = get_cached_skin_bytes(&player_name) {
+        if let Some(rgba) = normalize_skin_to_64x64(&cached_bytes) {
+            println!("[SKIN] Loaded cached skin for {}", player_name);
+            let mut p = pending.lock().unwrap();
+            p.push((player_key.clone(), rgba));
+        }
+    }
+
+    std::thread::spawn(move || {
+        if let Some(bytes) = download_skin_bytes(&player_name, skin_url.as_deref()) {
+            if let Some(rgba) = normalize_skin_to_64x64(&bytes) {
+                save_skin_to_cache(&player_name, &bytes);
+                println!("[SKIN] Successfully resolved and cached skin for {}", player_name);
+                let mut p = pending.lock().unwrap();
+                p.push((player_key, rgba));
             }
+        } else {
+            println!("[SKIN] Could not resolve skin for {}, defaulting to Steve", player_name);
         }
     });
 }
@@ -285,5 +408,24 @@ mod tests {
         img.write_to(&mut std::io::Cursor::new(&mut png_bytes), image::ImageFormat::Png).unwrap();
         let normalized = normalize_skin_to_64x64(&png_bytes).expect("Should normalize 64x32");
         assert_eq!(normalized.len(), 64 * 64 * 4);
+    }
+
+    #[test]
+    fn test_extract_json_string_field() {
+        let json = r#"{"id" : "45b08726522145eeb2186c83fcd9f1e5", "name" : "GHutch187"}"#;
+        assert_eq!(extract_json_string_field(json, "id"), Some("45b08726522145eeb2186c83fcd9f1e5".to_string()));
+        assert_eq!(extract_json_string_field(json, "name"), Some("GHutch187".to_string()));
+        assert_eq!(extract_json_string_field(json, "missing"), None);
+    }
+
+    #[test]
+    fn test_mojang_skin_resolution_ghutch() {
+        let skin_url = fetch_mojang_skin_url("GHutch187");
+        assert!(skin_url.is_some(), "Must resolve official skin URL for GHutch187");
+        let url = skin_url.unwrap();
+        assert!(url.contains("textures.minecraft.net"), "URL should be from textures.minecraft.net: {}", url);
+        let bytes = http_get_bytes(&url).expect("Must download skin bytes from official URL");
+        let normalized = normalize_skin_to_64x64(&bytes);
+        assert!(normalized.is_some(), "Must normalize official skin to 64x64");
     }
 }

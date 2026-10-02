@@ -34,6 +34,9 @@ pub struct ChunkGpuMesh {
     pub transparent_vertex_buffer: Option<wgpu::Buffer>,
     pub transparent_index_buffer: Option<wgpu::Buffer>,
     pub transparent_index_count: u32,
+    pub end_portal_vertex_buffer: Option<wgpu::Buffer>,
+    pub end_portal_index_buffer: Option<wgpu::Buffer>,
+    pub end_portal_index_count: u32,
 }
 
 pub struct RenderState {
@@ -44,6 +47,16 @@ pub struct RenderState {
     pub size: winit::dpi::PhysicalSize<u32>,
     pub render_pipeline: wgpu::RenderPipeline,
     pub transparent_pipeline: wgpu::RenderPipeline,
+    pub end_portal_pipeline: wgpu::RenderPipeline,
+    #[allow(dead_code)]
+    pub end_portal_bind_group_layout: wgpu::BindGroupLayout,
+    pub end_portal_bind_group: wgpu::BindGroup,
+    #[allow(dead_code)]
+    pub end_sky_texture: wgpu::Texture,
+    #[allow(dead_code)]
+    pub end_portal_texture: wgpu::Texture,
+    #[allow(dead_code)]
+    pub end_portal_sampler: wgpu::Sampler,
     pub crosshair_pipeline: wgpu::RenderPipeline,
     pub crosshair_buffer: wgpu::Buffer,
     pub camera_uniform: CameraUniform,
@@ -163,13 +176,19 @@ impl RenderState {
             wgpu::PresentMode::AutoNoVsync
         };
 
+        let alpha_mode = if surface_caps.alpha_modes.contains(&wgpu::CompositeAlphaMode::Opaque) {
+            wgpu::CompositeAlphaMode::Opaque
+        } else {
+            surface_caps.alpha_modes[0]
+        };
+
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
             width: size.width.max(1),
             height: size.height.max(1),
             present_mode,
-            alpha_mode: surface_caps.alpha_modes[0],
+            alpha_mode,
             view_formats: vec![],
             desired_maximum_frame_latency: 1,
         };
@@ -320,7 +339,7 @@ impl RenderState {
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
+                    write_mask: wgpu::ColorWrites::COLOR,
                 })],
                 compilation_options: Default::default(),
             }),
@@ -359,8 +378,8 @@ impl RenderState {
                 entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::COLOR,
                 })],
                 compilation_options: Default::default(),
             }),
@@ -439,7 +458,7 @@ fn fs_main() -> @location(0) vec4<f32> {
                             },
                             alpha: wgpu::BlendComponent::OVER,
                         }),
-                        write_mask: wgpu::ColorWrites::ALL,
+                        write_mask: wgpu::ColorWrites::COLOR,
                     })],
                     compilation_options: Default::default(),
                 }),
@@ -482,6 +501,155 @@ fn fs_main() -> @location(0) vec4<f32> {
             &atlas_sampler,
         );
 
+        let end_sky_bytes = crate::resource_pack::get_texture(
+            "textures/environment/end_sky.png",
+            crate::texture::END_SKY_BYTES,
+        );
+        let end_sky_img = image::load_from_memory(&end_sky_bytes)
+            .map(|img| img.to_rgba8())
+            .unwrap_or_else(|_| image::RgbaImage::new(128, 128));
+        let (end_sky_texture, end_sky_view) =
+            Self::create_rgba_texture(&device, &queue, &end_sky_img, "End Sky Texture");
+
+        let end_portal_bytes = crate::resource_pack::get_texture(
+            "textures/entity/end_portal.png",
+            crate::texture::END_PORTAL_BYTES,
+        );
+        let end_portal_img = image::load_from_memory(&end_portal_bytes)
+            .map(|img| img.to_rgba8())
+            .unwrap_or_else(|_| image::RgbaImage::new(256, 256));
+        let (end_portal_texture, end_portal_view) =
+            Self::create_rgba_texture(&device, &queue, &end_portal_img, "End Portal Texture");
+
+        let end_portal_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("End Portal Sampler"),
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            address_mode_w: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+
+        let end_portal_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("End Portal Bind Group Layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+            });
+
+        let end_portal_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("End Portal Bind Group"),
+            layout: &end_portal_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: camera_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&end_sky_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&end_portal_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&end_portal_sampler),
+                },
+            ],
+        });
+
+        let end_portal_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("End Portal Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("end_portal_shader.wgsl").into()),
+        });
+
+        let end_portal_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("End Portal Pipeline Layout"),
+                bind_group_layouts: &[&end_portal_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+
+        let end_portal_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("End Portal Pipeline"),
+            layout: Some(&end_portal_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &end_portal_shader,
+                entry_point: Some("vs_main"),
+                buffers: &[Vertex::desc()],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &end_portal_shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::COLOR,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+
         Self {
             surface,
             device,
@@ -490,6 +658,12 @@ fn fs_main() -> @location(0) vec4<f32> {
             size,
             render_pipeline,
             transparent_pipeline,
+            end_portal_pipeline,
+            end_portal_bind_group_layout,
+            end_portal_bind_group,
+            end_sky_texture,
+            end_portal_texture,
+            end_portal_sampler,
             crosshair_pipeline,
             crosshair_buffer,
             camera_uniform,
@@ -534,6 +708,51 @@ fn fs_main() -> @location(0) vec4<f32> {
         };
         let texture = device.create_texture(&desc);
         texture.create_view(&wgpu::TextureViewDescriptor::default())
+    }
+
+    fn create_rgba_texture(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        img: &image::RgbaImage,
+        label: &str,
+    ) -> (wgpu::Texture, wgpu::TextureView) {
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some(label),
+            size: wgpu::Extent3d {
+                width: img.width(),
+                height: img.height(),
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+
+        queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            img,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(img.width() * 4),
+                rows_per_image: Some(img.height()),
+            },
+            wgpu::Extent3d {
+                width: img.width(),
+                height: img.height(),
+                depth_or_array_layers: 1,
+            },
+        );
+
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        (texture, view)
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -596,6 +815,23 @@ fn fs_main() -> @location(0) vec4<f32> {
             None
         };
 
+        let (end_portal_vertex_buffer, end_portal_index_buffer) = if !mesh.end_portal_indices.is_empty() {
+            (
+                Some(self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Chunk End Portal Vertex Buffer"),
+                    contents: bytemuck::cast_slice(&mesh.end_portal_vertices),
+                    usage: wgpu::BufferUsages::VERTEX,
+                })),
+                Some(self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Chunk End Portal Index Buffer"),
+                    contents: bytemuck::cast_slice(&mesh.end_portal_indices),
+                    usage: wgpu::BufferUsages::INDEX,
+                })),
+            )
+        } else {
+            (None, None)
+        };
+
         self.chunk_meshes.insert(
             (cx, cz),
             ChunkGpuMesh {
@@ -605,6 +841,9 @@ fn fs_main() -> @location(0) vec4<f32> {
                 transparent_vertex_buffer,
                 transparent_index_buffer,
                 transparent_index_count: mesh.transparent_indices.len() as u32,
+                end_portal_vertex_buffer,
+                end_portal_index_buffer,
+                end_portal_index_count: mesh.end_portal_indices.len() as u32,
             },
         );
     }
@@ -639,6 +878,9 @@ fn fs_main() -> @location(0) vec4<f32> {
             transparent_vertex_buffer: None,
             transparent_index_buffer: None,
             transparent_index_count: 0,
+            end_portal_vertex_buffer: None,
+            end_portal_index_buffer: None,
+            end_portal_index_count: 0,
         });
     }
 
@@ -673,6 +915,9 @@ fn fs_main() -> @location(0) vec4<f32> {
                 transparent_vertex_buffer: None,
                 transparent_index_buffer: None,
                 transparent_index_count: 0,
+                end_portal_vertex_buffer: None,
+                end_portal_index_buffer: None,
+                end_portal_index_count: 0,
             },
         );
     }
@@ -750,6 +995,60 @@ fn fs_main() -> @location(0) vec4<f32> {
                     aspect: wgpu::TextureAspect::All,
                 },
                 &flow_rgba,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(crate::texture::TILE_SIZE * 4),
+                    rows_per_image: Some(crate::texture::TILE_SIZE),
+                },
+                wgpu::Extent3d {
+                    width: crate::texture::TILE_SIZE,
+                    height: crate::texture::TILE_SIZE,
+                    depth_or_array_layers: 1,
+                },
+            );
+
+            let portal_rgba = crate::texture::get_portal_frame_rgba(self.anim_frame);
+            let col220 = 220 % crate::texture::TILES_PER_ROW;
+            let row220 = 220 / crate::texture::TILES_PER_ROW;
+            self.queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &self.atlas_texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d {
+                        x: col220 * crate::texture::TILE_SIZE,
+                        y: row220 * crate::texture::TILE_SIZE,
+                        z: 0,
+                    },
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &portal_rgba,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(crate::texture::TILE_SIZE * 4),
+                    rows_per_image: Some(crate::texture::TILE_SIZE),
+                },
+                wgpu::Extent3d {
+                    width: crate::texture::TILE_SIZE,
+                    height: crate::texture::TILE_SIZE,
+                    depth_or_array_layers: 1,
+                },
+            );
+
+            let fire_rgba = crate::texture::get_fire_frame_rgba(self.anim_frame);
+            let col222 = 222 % crate::texture::TILES_PER_ROW;
+            let row222 = 222 / crate::texture::TILES_PER_ROW;
+            self.queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &self.atlas_texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d {
+                        x: col222 * crate::texture::TILE_SIZE,
+                        y: row222 * crate::texture::TILE_SIZE,
+                        z: 0,
+                    },
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &fire_rgba,
                 wgpu::TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(crate::texture::TILE_SIZE * 4),
@@ -843,18 +1142,49 @@ fn fs_main() -> @location(0) vec4<f32> {
                 }
             }
 
+            render_pass.set_pipeline(&self.end_portal_pipeline);
+            render_pass.set_bind_group(0, &self.end_portal_bind_group, &[]);
+            for mesh in self.chunk_meshes.values() {
+                if mesh.end_portal_index_count > 0 {
+                    if let (Some(vb), Some(ib)) = (&mesh.end_portal_vertex_buffer, &mesh.end_portal_index_buffer) {
+                        render_pass.set_vertex_buffer(0, vb.slice(..));
+                        render_pass.set_index_buffer(ib.slice(..), wgpu::IndexFormat::Uint32);
+                        render_pass.draw_indexed(0..mesh.end_portal_index_count, 0, 0..1);
+                    }
+                }
+            }
+
             self.sky.draw_clouds(&mut render_pass);
 
             render_pass.set_pipeline(&self.transparent_pipeline);
-
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-            for mesh in self.chunk_meshes.values() {
-                if mesh.transparent_index_count > 0 {
-                    if let (Some(vb), Some(ib)) = (&mesh.transparent_vertex_buffer, &mesh.transparent_index_buffer) {
-                        render_pass.set_vertex_buffer(0, vb.slice(..));
-                        render_pass.set_index_buffer(ib.slice(..), wgpu::IndexFormat::Uint32);
-                        render_pass.draw_indexed(0..mesh.transparent_index_count, 0, 0..1);
-                    }
+
+            let cam_x = self.camera_uniform.eye_pos[0];
+            let cam_z = self.camera_uniform.eye_pos[2];
+
+            let mut sorted_transparent: Vec<(&(i32, i32), &ChunkGpuMesh)> = self
+                .chunk_meshes
+                .iter()
+                .filter(|(_, mesh)| mesh.transparent_index_count > 0)
+                .collect();
+
+            sorted_transparent.sort_by(|(pos_a, _), (pos_b, _)| {
+                let center_a_x = (pos_a.0 * 16 + 8) as f32;
+                let center_a_z = (pos_a.1 * 16 + 8) as f32;
+                let dist_a_sq = (center_a_x - cam_x).powi(2) + (center_a_z - cam_z).powi(2);
+
+                let center_b_x = (pos_b.0 * 16 + 8) as f32;
+                let center_b_z = (pos_b.1 * 16 + 8) as f32;
+                let dist_b_sq = (center_b_x - cam_x).powi(2) + (center_b_z - cam_z).powi(2);
+
+                dist_b_sq.partial_cmp(&dist_a_sq).unwrap_or(std::cmp::Ordering::Equal)
+            });
+
+            for (_, mesh) in sorted_transparent {
+                if let (Some(vb), Some(ib)) = (&mesh.transparent_vertex_buffer, &mesh.transparent_index_buffer) {
+                    render_pass.set_vertex_buffer(0, vb.slice(..));
+                    render_pass.set_index_buffer(ib.slice(..), wgpu::IndexFormat::Uint32);
+                    render_pass.draw_indexed(0..mesh.transparent_index_count, 0, 0..1);
                 }
             }
 

@@ -516,7 +516,7 @@ pub fn get_piston_side_rot(meta: u8, face: BlockFace) -> u8 {
     }
 }
 
-pub fn should_render_face(block_id: u16, neighbor_id: u16) -> bool {
+pub fn should_render_face_meta(block_id: u16, block_meta: u8, neighbor_id: u16, neighbor_meta: u8) -> bool {
     if neighbor_id == 0 {
         return true;
     }
@@ -526,16 +526,37 @@ pub fn should_render_face(block_id: u16, neighbor_id: u16) -> bool {
     if (block_id == 10 || block_id == 11) && (neighbor_id == 10 || neighbor_id == 11) {
         return false;
     }
-    if block_id == 20 && (neighbor_id == 20 || neighbor_id == 95) {
-        return false;
-    }
     if block_id == 79 && neighbor_id == 79 {
         return false;
     }
-    if block_id == 95 && (neighbor_id == 95 || neighbor_id == 20) {
-        return false;
+    // Minecraft 1.7.10 BlockBreakable (alk.class):
+    // For glass (20) and stained glass (95):
+    // If neighbor has different block ID or different metadata, render the face!
+    // If neighbor is the same block AND same metadata, cull the interior face!
+    if block_id == 95 {
+        if neighbor_id == 95 && (block_meta & 15) == (neighbor_meta & 15) {
+            return false;
+        }
+        if is_opaque_cube(neighbor_id) {
+            return false;
+        }
+        return true;
+    }
+    if block_id == 20 {
+        if neighbor_id == 20 {
+            return false;
+        }
+        if is_opaque_cube(neighbor_id) {
+            return false;
+        }
+        return true;
     }
     !is_opaque_cube(neighbor_id)
+}
+
+#[allow(dead_code)]
+pub fn should_render_face(block_id: u16, neighbor_id: u16) -> bool {
+    should_render_face_meta(block_id, 0, neighbor_id, 0)
 }
 
 fn face_shading_factor(face: BlockFace) -> f32 {
@@ -3121,51 +3142,61 @@ fn add_nether_portal_quads(
     let color = [1.0, 1.0, 1.0, 1.0];
     let normal = [1.0, 1.0, 1.0];
 
-    let connect_x = world.get_block(wx - 1, wy, wz).id == 90 || world.get_block(wx + 1, wy, wz).id == 90;
-    let connect_z = world.get_block(wx, wy, wz - 1).id == 90 || world.get_block(wx, wy, wz + 1).id == 90;
-
-    let along_x = if connect_x && !connect_z {
+    // Canonical Minecraft 1.7.10 BlockPortal (amp.class):
+    // Axis 1 = East-West (along X), Axis 2 = North-South (along Z).
+    let axis = (block.meta & 3) as i32;
+    let along_x = if axis == 1 {
         true
-    } else if connect_z && !connect_x {
+    } else if axis == 2 {
         false
     } else {
-        block.meta != 2
+        let connect_x = world.get_block(wx - 1, wy, wz).id == 90 || world.get_block(wx + 1, wy, wz).id == 90;
+        if connect_x {
+            true
+        } else {
+            let connect_z = world.get_block(wx, wy, wz - 1).id == 90 || world.get_block(wx, wy, wz + 1).id == 90;
+            !connect_z
+        }
     };
 
+    // Canonical 1.7.10 BlockPortal thickness is 4/16 (0.25):
+    // min = 0.5 - 0.125 = 0.375, max = 0.5 + 0.125 = 0.625
     let quads = if along_x {
-        let z = fz + 0.5;
+        let z_min = fz + 0.375;
+        let z_max = fz + 0.625;
         [
-            // Front face (+Z)
+            // South face (+Z) at z_max
             [
-                ([fx, fy, z], [u0, v1]),
-                ([fx + 1.0, fy, z], [u1, v1]),
-                ([fx + 1.0, fy + 1.0, z], [u1, v0]),
-                ([fx, fy + 1.0, z], [u0, v0]),
+                ([fx, fy, z_max], [u0, v1]),
+                ([fx + 1.0, fy, z_max], [u1, v1]),
+                ([fx + 1.0, fy + 1.0, z_max], [u1, v0]),
+                ([fx, fy + 1.0, z_max], [u0, v0]),
             ],
-            // Back face (-Z)
+            // North face (-Z) at z_min
             [
-                ([fx + 1.0, fy, z], [u0, v1]),
-                ([fx, fy, z], [u1, v1]),
-                ([fx, fy + 1.0, z], [u1, v0]),
-                ([fx + 1.0, fy + 1.0, z], [u0, v0]),
+                ([fx + 1.0, fy, z_min], [u0, v1]),
+                ([fx, fy, z_min], [u1, v1]),
+                ([fx, fy + 1.0, z_min], [u1, v0]),
+                ([fx + 1.0, fy + 1.0, z_min], [u0, v0]),
             ],
         ]
     } else {
-        let x = fx + 0.5;
+        let x_min = fx + 0.375;
+        let x_max = fx + 0.625;
         [
-            // Front face (+X)
+            // East face (+X) at x_max
             [
-                ([x, fy, fz + 1.0], [u0, v1]),
-                ([x, fy, fz], [u1, v1]),
-                ([x, fy + 1.0, fz], [u1, v0]),
-                ([x, fy + 1.0, fz + 1.0], [u0, v0]),
+                ([x_max, fy, fz + 1.0], [u0, v1]),
+                ([x_max, fy, fz], [u1, v1]),
+                ([x_max, fy + 1.0, fz], [u1, v0]),
+                ([x_max, fy + 1.0, fz + 1.0], [u0, v0]),
             ],
-            // Back face (-X)
+            // West face (-X) at x_min
             [
-                ([x, fy, fz], [u0, v1]),
-                ([x, fy, fz + 1.0], [u1, v1]),
-                ([x, fy + 1.0, fz + 1.0], [u1, v0]),
-                ([x, fy + 1.0, fz], [u0, v0]),
+                ([x_min, fy, fz], [u0, v1]),
+                ([x_min, fy, fz + 1.0], [u1, v1]),
+                ([x_min, fy + 1.0, fz + 1.0], [u1, v0]),
+                ([x_min, fy + 1.0, fz], [u0, v0]),
             ],
         ]
     };
@@ -3622,9 +3653,9 @@ fn add_chest_quads(
         let (u0_b, v0_b, u1_b, v1_b) = crate::texture::get_slot_uv(back_slot);
         let du_b = u1_b - u0_b;
         let (ub_in, ub_out) = if is_left_half {
-            (u1_b, u0_b + du_b * (1.0 / 16.0))
-        } else {
             (u0_b, u0_b + du_b * (15.0 / 16.0))
+        } else {
+            (u1_b, u0_b + du_b * (1.0 / 16.0))
         };
         let vb_top = v0_b + (v1_b - v0_b) * (2.0 / 16.0);
         let vb_bot = v1_b;
@@ -3812,10 +3843,12 @@ fn add_enchanting_table_quads(
     // Book is rendered dynamically via build_enchanting_book_model in the entities mesh
 }
 
-/// Build a 3D book model above an enchanting table.
-/// When `open_factor == 0.0` (player far away), the book lies closed flat on the table.
-/// When `open_factor > 0.0`, the book floats up, tilts back, rotates to face the player via `yaw`,
-/// and smoothly opens with 3D page slabs and covers textured via `get_book_texture_uv`.
+/// Build a 3D book model floating above an enchanting table.
+/// Fully matches canonical Minecraft 1.7.10 ModelBook (bhf.class) and Renderer (bmn.class):
+/// - Exact part hierarchy: coverRight, coverLeft, bookSpine, pagesRight, pagesLeft, flipping pages.
+/// - Exact 1.7.10 rotation points and box dimensions.
+/// - Covers properly enclose the pages (pages on inside, covers on outside).
+/// - Exact 1.7.10 TexturedQuad UV coordinate mappings.
 pub fn build_enchanting_book_model(
     mesh: &mut MeshData,
     table_x: f32,
@@ -3823,117 +3856,184 @@ pub fn build_enchanting_book_model(
     table_z: f32,
     yaw: f32,
     open_factor: f32,
+    flip_right: f32,
+    flip_left: f32,
+    light: [f32; 3],
 ) {
-    let color = [1.0, 1.0, 1.0, 1.0];
-    let normal = [1.0, 1.0, 1.0];
-
     let cx = table_x + 0.5;
+    let cy = table_y + 0.75 + 0.1;
     let cz = table_z + 0.5;
 
-    if open_factor <= 0.01 {
-        // Book closed, lying flat on top of table at y = 12/16
-        let cy = table_y + 12.0 / 16.0;
-        let hw = 3.5 / 16.0; // half-width
-        let hd = 5.0 / 16.0; // half-length
-        let th = 1.5 / 16.0; // thickness
+    let f8 = 1.25 * open_factor.clamp(0.0, 1.0);
 
-        // Texture UVs from enchanting_table_book.png
-        let cuv_top = [
-            crate::texture::get_book_texture_uv(0.0, 0.0),
-            crate::texture::get_book_texture_uv(0.0, 10.0),
-            crate::texture::get_book_texture_uv(6.0, 10.0),
-            crate::texture::get_book_texture_uv(6.0, 0.0),
-        ];
-        let cuv_bot = [
-            crate::texture::get_book_texture_uv(16.0, 0.0),
-            crate::texture::get_book_texture_uv(22.0, 0.0),
-            crate::texture::get_book_texture_uv(22.0, 10.0),
-            crate::texture::get_book_texture_uv(16.0, 10.0),
-        ];
-        let cuv_spine = [
-            crate::texture::get_book_texture_uv(12.0, 0.0),
-            crate::texture::get_book_texture_uv(12.0, 10.0),
-            crate::texture::get_book_texture_uv(14.0, 10.0),
-            crate::texture::get_book_texture_uv(14.0, 0.0),
-        ];
-        let cuv_edge_open = [
-            crate::texture::get_book_texture_uv(0.0, 11.0),
-            crate::texture::get_book_texture_uv(0.0, 19.0),
-            crate::texture::get_book_texture_uv(1.0, 19.0),
-            crate::texture::get_book_texture_uv(1.0, 11.0),
-        ];
-        let cuv_edge_end1 = [
-            crate::texture::get_book_texture_uv(1.0, 10.0),
-            crate::texture::get_book_texture_uv(6.0, 10.0),
-            crate::texture::get_book_texture_uv(6.0, 11.0),
-            crate::texture::get_book_texture_uv(1.0, 11.0),
-        ];
-        let cuv_edge_end2 = [
-            crate::texture::get_book_texture_uv(6.0, 10.0),
-            crate::texture::get_book_texture_uv(11.0, 10.0),
-            crate::texture::get_book_texture_uv(11.0, 11.0),
-            crate::texture::get_book_texture_uv(6.0, 11.0),
+    // Transform a model-space point (xm, ym, zm) in pixels to world coordinates.
+    // Matches canonical 1.7.10 TileEntityEnchantmentTableRenderer:
+    // 1. Scale 1/16 (0.0625)
+    // 2. Rotate 80 deg around Z
+    // 3. Rotate yaw around Y (where yaw = -book_rotation)
+    // 4. Translate to (cx, cy, cz)
+    let ang_z = 80.0f32.to_radians();
+    let cos_z = ang_z.cos();
+    let sin_z = ang_z.sin();
+    let cos_y = yaw.cos();
+    let sin_y = yaw.sin();
+
+    let xform = |xm: f32, ym: f32, zm: f32| -> [f32; 3] {
+        let xs = xm * 0.0625;
+        let ys = ym * 0.0625;
+        let zs = zm * 0.0625;
+
+        let x1 = xs * cos_z - ys * sin_z;
+        let y1 = xs * sin_z + ys * cos_z;
+        let z1 = zs;
+
+        let x2 = x1 * cos_y + z1 * sin_y;
+        let y2 = y1;
+        let z2 = -x1 * sin_y + z1 * cos_y;
+
+        [cx + x2, cy + y2, cz + z2]
+    };
+
+    struct PartDef {
+        box_coords: [f32; 6], // x0, y0, z0, w, h, d
+        rot_pt: [f32; 3],
+        rot_y: f32,
+        uv_u: f32,
+        uv_v: f32,
+    }
+
+    let sin_f8 = f8.sin();
+    let mut parts = vec![
+        // coverRight:
+        PartDef {
+            box_coords: [-6.0, -5.0, 0.0, 6.0, 10.0, 0.0],
+            rot_pt: [0.0, 0.0, -1.0],
+            rot_y: std::f32::consts::PI + f8,
+            uv_u: 0.0,
+            uv_v: 0.0,
+        },
+        // coverLeft:
+        PartDef {
+            box_coords: [0.0, -5.0, 0.0, 6.0, 10.0, 0.0],
+            rot_pt: [0.0, 0.0, 1.0],
+            rot_y: -f8,
+            uv_u: 16.0,
+            uv_v: 0.0,
+        },
+        // bookSpine:
+        PartDef {
+            box_coords: [-1.0, -5.0, 0.0, 2.0, 10.0, 0.0],
+            rot_pt: [0.0, 0.0, 0.0],
+            rot_y: std::f32::consts::FRAC_PI_2,
+            uv_u: 12.0,
+            uv_v: 0.0,
+        },
+        // pagesRight:
+        PartDef {
+            box_coords: [0.0, -4.0, -0.99, 5.0, 8.0, 1.0],
+            rot_pt: [sin_f8, 0.0, 0.0],
+            rot_y: f8,
+            uv_u: 0.0,
+            uv_v: 10.0,
+        },
+        // pagesLeft:
+        PartDef {
+            box_coords: [0.0, -4.0, -0.01, 5.0, 8.0, 1.0],
+            rot_pt: [sin_f8, 0.0, 0.0],
+            rot_y: -f8,
+            uv_u: 12.0,
+            uv_v: 10.0,
+        },
+    ];
+
+    if open_factor > 0.05 {
+        parts.push(PartDef {
+            box_coords: [0.0, -4.0, 0.0, 5.0, 8.0, 0.0],
+            rot_pt: [sin_f8, 0.0, 0.0],
+            rot_y: f8 - 2.0 * f8 * flip_right,
+            uv_u: 24.0,
+            uv_v: 10.0,
+        });
+        parts.push(PartDef {
+            box_coords: [0.0, -4.0, 0.0, 5.0, 8.0, 0.0],
+            rot_pt: [sin_f8, 0.0, 0.0],
+            rot_y: f8 - 2.0 * f8 * flip_left,
+            uv_u: 24.0,
+            uv_v: 10.0,
+        });
+    }
+
+    for part in parts {
+        let [x0, y0, z0, w, h, d] = part.box_coords;
+        let x1 = x0 + w;
+        let y1 = y0 + h;
+        let z1 = z0 + d;
+
+        let raw_verts = [
+            [x0, y0, z0], // 0 (14)
+            [x1, y0, z0], // 1 (15)
+            [x1, y1, z0], // 2 (16)
+            [x0, y1, z0], // 3 (17)
+            [x0, y0, z1], // 4 (18)
+            [x1, y0, z1], // 5 (19)
+            [x1, y1, z1], // 6 (20)
+            [x0, y1, z1], // 7 (21)
         ];
 
-        let quads: [([f32; 3], [f32; 3], [f32; 3], [f32; 3], [[f32; 2]; 4]); 6] = [
-            // Top cover
-            (
-                [cx - hw, cy + th, cz - hd],
-                [cx - hw, cy + th, cz + hd],
-                [cx + hw, cy + th, cz + hd],
-                [cx + hw, cy + th, cz - hd],
-                cuv_top,
-            ),
-            // Bottom cover
-            (
-                [cx - hw, cy, cz + hd],
-                [cx - hw, cy, cz - hd],
-                [cx + hw, cy, cz - hd],
-                [cx + hw, cy, cz + hd],
-                cuv_bot,
-            ),
-            // Spine (-X)
-            (
-                [cx - hw, cy + th, cz - hd],
-                [cx - hw, cy, cz - hd],
-                [cx - hw, cy, cz + hd],
-                [cx - hw, cy + th, cz + hd],
-                cuv_spine,
-            ),
-            // Open paper side (+X)
-            (
-                [cx + hw, cy + th, cz + hd],
-                [cx + hw, cy, cz + hd],
-                [cx + hw, cy, cz - hd],
-                [cx + hw, cy + th, cz - hd],
-                cuv_edge_open,
-            ),
-            // North paper edge (-Z)
-            (
-                [cx + hw, cy + th, cz - hd],
-                [cx + hw, cy, cz - hd],
-                [cx - hw, cy, cz - hd],
-                [cx - hw, cy + th, cz - hd],
-                cuv_edge_end1,
-            ),
-            // South paper edge (+Z)
-            (
-                [cx - hw, cy + th, cz + hd],
-                [cx - hw, cy, cz + hd],
-                [cx + hw, cy, cz + hd],
-                [cx + hw, cy + th, cz + hd],
-                cuv_edge_end2,
-            ),
-        ];
+        let cos_ry = part.rot_y.cos();
+        let sin_ry = part.rot_y.sin();
 
-        for (p0, p1, p2, p3, uvs) in quads {
+        let tverts: [[f32; 3]; 8] = std::array::from_fn(|i| {
+            let [vx, vy, vz] = raw_verts[i];
+            let xm = part.rot_pt[0] + vx * cos_ry + vz * sin_ry;
+            let ym = part.rot_pt[1] + vy;
+            let zm = part.rot_pt[2] - vx * sin_ry + vz * cos_ry;
+            xform(xm, ym, zm)
+        });
+
+        let u = part.uv_u;
+        let v = part.uv_v;
+
+        // ModelBox faces (bis.class in vanilla Minecraft 1.7.10)
+        let mut face_defs: Vec<([usize; 4], [f32; 4], f32)> = Vec::with_capacity(6);
+        if w > 0.0 && d > 0.0 {
+            // Face 0 (East, +X): [19, 15, 16, 20]
+            face_defs.push(([5, 1, 2, 6], [u + d + w, v + d, u + d + w + d, v + d + h], 0.85));
+            // Face 1 (West, -X): [14, 18, 21, 17]
+            face_defs.push(([0, 4, 7, 3], [u, v + d, u + d, v + d + h], 0.85));
+            // Face 2 (Up, -Y): [19, 18, 14, 15]
+            face_defs.push(([5, 4, 0, 1], [u + d, v, u + d + w, v + d], 0.80));
+            // Face 3 (Down, +Y): [16, 17, 21, 20]
+            face_defs.push(([2, 3, 7, 6], [u + d + w, v, u + d + w + w, v + d], 0.80));
+        }
+        // Face 4 (North, -Z): [15, 14, 17, 16]
+        face_defs.push(([1, 0, 3, 2], [u + d, v + d, u + d + w, v + d + h], 0.95));
+        // Face 5 (South, +Z): [18, 19, 20, 21]
+        face_defs.push(([4, 5, 6, 7], [u + d + w + d, v + d, u + d + w + d + w, v + d + h], 0.95));
+
+        for (vindices, [u0, v0, u1, v1], shade) in face_defs {
+            let p = [
+                tverts[vindices[0]],
+                tverts[vindices[1]],
+                tverts[vindices[2]],
+                tverts[vindices[3]],
+            ];
+            // UV order from TexturedQuad (bhv.class in vanilla Minecraft 1.7.10)
+            let uvs = [
+                crate::texture::get_book_texture_uv(u1, v0),
+                crate::texture::get_book_texture_uv(u0, v0),
+                crate::texture::get_book_texture_uv(u0, v1),
+                crate::texture::get_book_texture_uv(u1, v1),
+            ];
+
+            let col = [shade, shade, shade, 1.0];
             let start_idx = mesh.vertices.len() as u32;
-            for (i, pos) in [p0, p1, p2, p3].iter().enumerate() {
+            for i in 0..4 {
                 mesh.vertices.push(Vertex {
-                    position: *pos,
+                    position: p[i],
                     uv: uvs[i],
-                    color,
-                    normal,
+                    color: col,
+                    normal: light,
                 });
             }
             mesh.indices.extend_from_slice(&[
@@ -3945,202 +4045,6 @@ pub fn build_enchanting_book_model(
                 start_idx + 3,
             ]);
         }
-        return;
-    }
-
-    // Open floating book model
-    let open = open_factor.clamp(0.0, 1.0);
-    let cy = table_y + 12.5 / 16.0 + open * (1.5 / 16.0);
-    let pitch = open * 0.45; // ~26 deg backward tilt towards player
-    let phi = 0.15 + open * 1.05; // ~68 deg wing fanning angle
-
-    let cos_y = yaw.cos();
-    let sin_y = yaw.sin();
-    let cos_p = pitch.cos();
-    let sin_p = pitch.sin();
-
-    // Transform local book coordinates (spine at origin, length along Z) to world
-    let xform = |lx: f32, ly: f32, lz: f32| -> [f32; 3] {
-        let py = ly * cos_p - lz * sin_p;
-        let pz = ly * sin_p + lz * cos_p;
-        [
-            cx + lx * cos_y + pz * sin_y,
-            cy + py,
-            cz - lx * sin_y + pz * cos_y,
-        ]
-    };
-
-    let hw_c = 6.0 / 16.0; // Cover width
-    let hd = 5.0 / 16.0;   // Spine / cover half-depth (Z)
-    let th = 0.8 / 16.0;   // 3D page slab thickness
-
-    // Unit directions for right wing:
-    let r_ux = phi.cos();
-    let r_uy = phi.sin();
-    let r_nx = -phi.sin();
-    let r_ny = phi.cos();
-
-    // Unit directions for left wing:
-    let l_ux = -phi.cos();
-    let l_uy = phi.sin();
-    let l_nx = phi.sin();
-    let l_ny = phi.cos();
-
-    // 1. Right Cover Bottom (outside leather)
-    let r_cov_b0 = xform(0.0, 0.0, -hd);
-    let r_cov_b1 = xform(0.0, 0.0, hd);
-    let r_cov_b2 = xform(hw_c * r_ux, hw_c * r_uy, hd);
-    let r_cov_b3 = xform(hw_c * r_ux, hw_c * r_uy, -hd);
-    let r_cov_uv = [
-        crate::texture::get_book_texture_uv(0.0, 0.0),
-        crate::texture::get_book_texture_uv(0.0, 10.0),
-        crate::texture::get_book_texture_uv(6.0, 10.0),
-        crate::texture::get_book_texture_uv(6.0, 0.0),
-    ];
-
-    // 2. Left Cover Bottom (outside leather)
-    let l_cov_b0 = xform(hw_c * l_ux, hw_c * l_uy, -hd);
-    let l_cov_b1 = xform(hw_c * l_ux, hw_c * l_uy, hd);
-    let l_cov_b2 = xform(0.0, 0.0, hd);
-    let l_cov_b3 = xform(0.0, 0.0, -hd);
-    let l_cov_uv = [
-        crate::texture::get_book_texture_uv(16.0, 0.0),
-        crate::texture::get_book_texture_uv(16.0, 10.0),
-        crate::texture::get_book_texture_uv(22.0, 10.0),
-        crate::texture::get_book_texture_uv(22.0, 0.0),
-    ];
-
-    // 3. Right Cover Inside (under page)
-    let r_cov_in_uv = [
-        crate::texture::get_book_texture_uv(6.0, 0.0),
-        crate::texture::get_book_texture_uv(6.0, 10.0),
-        crate::texture::get_book_texture_uv(12.0, 10.0),
-        crate::texture::get_book_texture_uv(12.0, 0.0),
-    ];
-
-    // 4. Left Cover Inside (under page)
-    let l_cov_in_uv = [
-        crate::texture::get_book_texture_uv(22.0, 0.0),
-        crate::texture::get_book_texture_uv(22.0, 10.0),
-        crate::texture::get_book_texture_uv(28.0, 10.0),
-        crate::texture::get_book_texture_uv(28.0, 0.0),
-    ];
-
-    // 5. Spine back
-    let sp_w = 0.5 / 16.0;
-    let spine_p0 = xform(-sp_w, 0.0, -hd);
-    let spine_p1 = xform(-sp_w, 0.0, hd);
-    let spine_p2 = xform(sp_w, 0.0, hd);
-    let spine_p3 = xform(sp_w, 0.0, -hd);
-    let spine_uv = [
-        crate::texture::get_book_texture_uv(12.0, 0.0),
-        crate::texture::get_book_texture_uv(12.0, 10.0),
-        crate::texture::get_book_texture_uv(14.0, 10.0),
-        crate::texture::get_book_texture_uv(14.0, 0.0),
-    ];
-
-    // 3D Page Slabs:
-    let ps0 = 0.3 / 16.0;
-    let ps1 = 5.3 / 16.0;
-    let p_hd = 4.0 / 16.0; // 8 model pixels tall
-
-    // Right Page slab vertices:
-    // Base (on cover):
-    let r_p_base0 = [ps0 * r_ux, ps0 * r_uy, -p_hd];
-    let r_p_base1 = [ps0 * r_ux, ps0 * r_uy, p_hd];
-    let r_p_base2 = [ps1 * r_ux, ps1 * r_uy, p_hd];
-    let r_p_base3 = [ps1 * r_ux, ps1 * r_uy, -p_hd];
-    // Top elevated by th along normal:
-    let r_p_top0 = xform(r_p_base0[0] + th * r_nx, r_p_base0[1] + th * r_ny, -p_hd);
-    let r_p_top1 = xform(r_p_base1[0] + th * r_nx, r_p_base1[1] + th * r_ny, p_hd);
-    let r_p_top2 = xform(r_p_base2[0] + th * r_nx, r_p_base2[1] + th * r_ny, p_hd);
-    let r_p_top3 = xform(r_p_base3[0] + th * r_nx, r_p_base3[1] + th * r_ny, -p_hd);
-
-    let r_wb_top2 = xform(r_p_base2[0], r_p_base2[1], p_hd);
-    let r_wb_top3 = xform(r_p_base3[0], r_p_base3[1], -p_hd);
-
-    // Left Page slab vertices:
-    let l_p_base0 = [ps1 * l_ux, ps1 * l_uy, -p_hd];
-    let l_p_base1 = [ps1 * l_ux, ps1 * l_uy, p_hd];
-    let l_p_base2 = [ps0 * l_ux, ps0 * l_uy, p_hd];
-    let l_p_base3 = [ps0 * l_ux, ps0 * l_uy, -p_hd];
-    let l_p_top0 = xform(l_p_base0[0] + th * l_nx, l_p_base0[1] + th * l_ny, -p_hd);
-    let l_p_top1 = xform(l_p_base1[0] + th * l_nx, l_p_base1[1] + th * l_ny, p_hd);
-    let l_p_top2 = xform(l_p_base2[0] + th * l_nx, l_p_base2[1] + th * l_ny, p_hd);
-    let l_p_top3 = xform(l_p_base3[0] + th * l_nx, l_p_base3[1] + th * l_ny, -p_hd);
-
-    let l_wb_top0 = xform(l_p_base0[0], l_p_base0[1], -p_hd);
-    let l_wb_top1 = xform(l_p_base1[0], l_p_base1[1], p_hd);
-
-    // Right Page runes top:
-    let r_page_uv = [
-        crate::texture::get_book_texture_uv(1.0, 11.0),
-        crate::texture::get_book_texture_uv(1.0, 19.0),
-        crate::texture::get_book_texture_uv(6.0, 19.0),
-        crate::texture::get_book_texture_uv(6.0, 11.0),
-    ];
-    // Left Page runes top:
-    let l_page_uv = [
-        crate::texture::get_book_texture_uv(13.0, 11.0),
-        crate::texture::get_book_texture_uv(13.0, 19.0),
-        crate::texture::get_book_texture_uv(18.0, 19.0),
-        crate::texture::get_book_texture_uv(18.0, 11.0),
-    ];
-
-    // Right Page outer rim:
-    let r_rim_uv = [
-        crate::texture::get_book_texture_uv(0.0, 11.0),
-        crate::texture::get_book_texture_uv(0.0, 19.0),
-        crate::texture::get_book_texture_uv(1.0, 19.0),
-        crate::texture::get_book_texture_uv(1.0, 11.0),
-    ];
-    // Left Page outer rim:
-    let l_rim_uv = [
-        crate::texture::get_book_texture_uv(12.0, 11.0),
-        crate::texture::get_book_texture_uv(12.0, 19.0),
-        crate::texture::get_book_texture_uv(13.0, 19.0),
-        crate::texture::get_book_texture_uv(13.0, 11.0),
-    ];
-
-    let quads: [([f32; 3], [f32; 3], [f32; 3], [f32; 3], [[f32; 2]; 4]); 9] = [
-        // 1. Right cover bottom (leather outside)
-        (r_cov_b0, r_cov_b1, r_cov_b2, r_cov_b3, r_cov_uv),
-        // 2. Left cover bottom (leather outside)
-        (l_cov_b0, l_cov_b1, l_cov_b2, l_cov_b3, l_cov_uv),
-        // 3. Right cover top (inside leather)
-        (r_cov_b3, r_cov_b2, r_cov_b1, r_cov_b0, r_cov_in_uv),
-        // 4. Left cover top (inside leather)
-        (l_cov_b3, l_cov_b2, l_cov_b1, l_cov_b0, l_cov_in_uv),
-        // 5. Spine back
-        (spine_p0, spine_p1, spine_p2, spine_p3, spine_uv),
-        // 6. Right page top (runes facing player)
-        (r_p_top0, r_p_top1, r_p_top2, r_p_top3, r_page_uv),
-        // 7. Left page top (runes facing player)
-        (l_p_top0, l_p_top1, l_p_top2, l_p_top3, l_page_uv),
-        // 8. Right page outer slab rim (paper edge)
-        (r_p_top3, r_p_top2, r_wb_top2, r_wb_top3, r_rim_uv),
-        // 9. Left page outer slab rim (paper edge)
-        (l_wb_top0, l_wb_top1, l_p_top1, l_p_top0, l_rim_uv),
-    ];
-
-    for (p0, p1, p2, p3, uvs) in quads {
-        let start_idx = mesh.vertices.len() as u32;
-        for (i, pos) in [p0, p1, p2, p3].iter().enumerate() {
-            mesh.vertices.push(Vertex {
-                position: *pos,
-                uv: uvs[i],
-                color,
-                normal,
-            });
-        }
-        mesh.indices.extend_from_slice(&[
-            start_idx,
-            start_idx + 1,
-            start_idx + 2,
-            start_idx,
-            start_idx + 2,
-            start_idx + 3,
-        ]);
     }
 }
 
@@ -4179,16 +4083,24 @@ fn add_double_plant_quads(
         1.0,
     ];
 
-    let x0 = fx + 0.05;
-    let x1 = fx + 0.95;
-    let z0 = fz + 0.05;
-    let z1 = fz + 0.95;
-    let (stem_y0, stem_y1, stem_v0, stem_v1) = if variant == 0 && is_top {
-        // Sunflower top stem only extends to y=0.5, using bottom half of texture
-        (fy, fy + 0.5, v0 + (v1 - v0) * 0.5, v1)
-    } else {
-        (fy, fy + 1.0, v0, v1)
-    };
+    // Minecraft 1.7.10 plant offset & jitter (RenderBlocks blm.class):
+    let seed = ((wx as i32).wrapping_mul(3129871) as i64) ^ ((wz as i64).wrapping_mul(116129781));
+    let seed = seed.wrapping_mul(seed).wrapping_mul(42317861).wrapping_add(seed.wrapping_mul(11));
+    let jitter_x = (((seed >> 16) & 15) as f32 / 15.0 - 0.5) * 0.3;
+    let jitter_z = (((seed >> 24) & 15) as f32 / 15.0 - 0.5) * 0.3;
+
+    let dx = fx + jitter_x;
+    let dz = fz + jitter_z;
+
+    let x0 = dx + 0.05;
+    let x1 = dx + 0.95;
+    let z0 = dz + 0.05;
+    let z1 = dz + 0.95;
+    // Minecraft 1.7.10 renders the stem full height (1.0) for both top and bottom
+    let stem_y0 = fy;
+    let stem_y1 = fy + 1.0;
+    let stem_v0 = v0;
+    let stem_v1 = v1;
 
     let planes = [
         [
@@ -4241,26 +4153,35 @@ fn add_double_plant_quads(
         let (fu0, fv0, fu1, fv1) = crate::texture::get_slot_uv(267);
         let (bu0, bv0, bu1, bv1) = crate::texture::get_slot_uv(268);
 
-        // Sunflower flower disk: canonical Minecraft model is tilted 22.5 deg around Z
-        // facing East (+X) and tilted upwards, centered exactly at the top of the stem (y=0.5, x=0.5).
-        let x_bot = fx + 0.6988;
-        let y_bot = fy + 0.02;
-        let x_top = fx + 0.3012;
-        let y_top = fy + 0.98;
-        let z_min = fz + 1.0 / 16.0;
-        let z_max = fz + 15.0 / 16.0;
+        // Minecraft 1.7.10 Sunflower flower disk (RenderBlocks blm.class lines 383-848):
+        let angle = ((seed as f64 * 0.8).cos() * std::f64::consts::PI * 0.1) as f32;
+        let cos_a = angle.cos();
+        let sin_a = angle.sin();
 
+        let v41 = 0.5 + 0.3 * cos_a - 0.5 * sin_a;
+        let v43 = 0.5 + 0.5 * cos_a + 0.3 * sin_a;
+        let v45 = 0.5 + 0.3 * cos_a + 0.5 * sin_a;
+        let v47 = 0.5 - 0.5 * cos_a + 0.3 * sin_a;
+        let v49 = 0.5 - 0.05 * cos_a + 0.5 * sin_a;
+        let v51 = 0.5 - 0.5 * cos_a - 0.05 * sin_a;
+        let v53 = 0.5 - 0.05 * cos_a - 0.5 * sin_a;
+        let v55 = 0.5 + 0.5 * cos_a - 0.05 * sin_a;
+
+        // Front face: double_plant_sunflower_front (slot 267)
+        // bmh.a vertex order: (minU, maxV), (maxU, maxV), (maxU, minV), (minU, minV)
         let head_front = [
-            ([x_bot + 0.003, y_bot, z_max], [fu0, fv1]),
-            ([x_bot + 0.003, y_bot, z_min], [fu1, fv1]),
-            ([x_top + 0.003, y_top, z_min], [fu1, fv0]),
-            ([x_top + 0.003, y_top, z_max], [fu0, fv0]),
+            ([dx + v49, fy + 1.0, dz + v51], [fu0, fv1]),
+            ([dx + v53, fy + 1.0, dz + v55], [fu1, fv1]),
+            ([dx + v41, fy + 0.0, dz + v43], [fu1, fv0]),
+            ([dx + v45, fy + 0.0, dz + v47], [fu0, fv0]),
         ];
+
+        // Back face: double_plant_sunflower_back (slot 268)
         let head_back = [
-            ([x_bot - 0.003, y_bot, z_min], [bu0, bv1]),
-            ([x_bot - 0.003, y_bot, z_max], [bu1, bv1]),
-            ([x_top - 0.003, y_top, z_max], [bu1, bv0]),
-            ([x_top - 0.003, y_top, z_min], [bu0, bv0]),
+            ([dx + v53, fy + 1.0, dz + v55], [bu0, bv1]),
+            ([dx + v49, fy + 1.0, dz + v51], [bu1, bv1]),
+            ([dx + v45, fy + 0.0, dz + v47], [bu1, bv0]),
+            ([dx + v41, fy + 0.0, dz + v43], [bu0, bv0]),
         ];
 
         for quad in [head_front, head_back] {
@@ -4299,16 +4220,19 @@ fn add_beacon_quads(
 
     let full_light = [1.0, 1.0, 1.0]; // Beacon emits light 15
 
-    // 1. Obsidian base: [2/16, 0, 2/16] to [14/16, 3/16, 14/16] (opaque mesh)
+    // 1. Obsidian base: [2/16, 0.1/16, 2/16] to [14/16, 3/16, 14/16] (opaque mesh)
+    // 0.1/16 = 0.00625, matching Minecraft 1.7.10 RenderBlocks setRenderBounds(0.125, 0.00625, 0.125, 0.875, 0.1875, 0.875)
+    // This elevation prevents coplanar Z-fighting with the bottom of the glass casing.
     let obs_slots = [20u16; 6];
-    let obs_min = [fx + 2.0 / 16.0, fy, fz + 2.0 / 16.0];
+    let obs_min = [fx + 2.0 / 16.0, fy + 0.1 / 16.0, fz + 2.0 / 16.0];
     let obs_max = [fx + 14.0 / 16.0, fy + 3.0 / 16.0, fz + 14.0 / 16.0];
     add_sub_box_proportional(mesh, obs_min, obs_max, [fx, fy, fz], obs_slots, full_light);
 
-    // 2. Inner beacon diamond core: compact 7x7x7 floating crystal [4.5/16, 4/16, 4.5/16] to [11.5/16, 11/16, 11.5/16]
+    // 2. Inner beacon core: 10x11x10 crystal [3/16, 3/16, 3/16] to [13/16, 14/16, 13/16]
+    // Matches Minecraft 1.7.10 RenderBlocks setRenderBounds(0.1875, 0.1875, 0.1875, 0.8125, 0.875, 0.8125)
     let core_slots = [250u16; 6];
-    let core_min = [fx + 4.5 / 16.0, fy + 4.0 / 16.0, fz + 4.5 / 16.0];
-    let core_max = [fx + 11.5 / 16.0, fy + 11.0 / 16.0, fz + 11.5 / 16.0];
+    let core_min = [fx + 3.0 / 16.0, fy + 3.0 / 16.0, fz + 3.0 / 16.0];
+    let core_max = [fx + 13.0 / 16.0, fy + 14.0 / 16.0, fz + 13.0 / 16.0];
     add_sub_box_proportional(mesh, core_min, core_max, [fx, fy, fz], core_slots, full_light);
 
     // 3. Outer glass cube casing: [fx, fy, fz] to [fx + 1.0, fy + 1.0, fz + 1.0] (transparent mesh)
@@ -4317,23 +4241,20 @@ fn add_beacon_quads(
     let color = [1.0, 1.0, 1.0, 1.0];
     let normal = full_light;
 
+    let top_uvs = [[gu0, gv1], [gu1, gv1], [gu1, gv0], [gu0, gv0]];
+    let bot_uvs = [[gu0, gv0], [gu1, gv0], [gu1, gv1], [gu0, gv1]];
+    let side_uvs = [[gu0, gv0], [gu0, gv1], [gu1, gv1], [gu1, gv0]];
+
     let neighbors = [
-        (wx, wy + 1, wz, [[fx, fy + 1.0, fz + 1.0], [fx + 1.0, fy + 1.0, fz + 1.0], [fx + 1.0, fy + 1.0, fz], [fx, fy + 1.0, fz]], 1.0f32),
-        (wx, wy - 1, wz, [[fx, fy, fz], [fx + 1.0, fy, fz], [fx + 1.0, fy, fz + 1.0], [fx, fy, fz + 1.0]], 0.5f32),
-        (wx, wy, wz - 1, [[fx + 1.0, fy + 1.0, fz], [fx + 1.0, fy, fz], [fx, fy, fz], [fx, fy + 1.0, fz]], 0.8f32),
-        (wx, wy, wz + 1, [[fx, fy + 1.0, fz + 1.0], [fx, fy, fz + 1.0], [fx + 1.0, fy, fz + 1.0], [fx + 1.0, fy + 1.0, fz + 1.0]], 0.8f32),
-        (wx - 1, wy, wz, [[fx, fy + 1.0, fz], [fx, fy, fz], [fx, fy, fz + 1.0], [fx, fy + 1.0, fz + 1.0]], 0.6f32),
-        (wx + 1, wy, wz, [[fx + 1.0, fy + 1.0, fz + 1.0], [fx + 1.0, fy, fz + 1.0], [fx + 1.0, fy, fz], [fx + 1.0, fy + 1.0, fz]], 0.6f32),
+        (wx, wy + 1, wz, [[fx, fy + 1.0, fz + 1.0], [fx + 1.0, fy + 1.0, fz + 1.0], [fx + 1.0, fy + 1.0, fz], [fx, fy + 1.0, fz]], 1.0f32, top_uvs),
+        (wx, wy - 1, wz, [[fx, fy, fz], [fx + 1.0, fy, fz], [fx + 1.0, fy, fz + 1.0], [fx, fy, fz + 1.0]], 0.5f32, bot_uvs),
+        (wx, wy, wz - 1, [[fx + 1.0, fy + 1.0, fz], [fx + 1.0, fy, fz], [fx, fy, fz], [fx, fy + 1.0, fz]], 0.8f32, side_uvs),
+        (wx, wy, wz + 1, [[fx, fy + 1.0, fz + 1.0], [fx, fy, fz + 1.0], [fx + 1.0, fy, fz + 1.0], [fx + 1.0, fy + 1.0, fz + 1.0]], 0.8f32, side_uvs),
+        (wx - 1, wy, wz, [[fx, fy + 1.0, fz], [fx, fy, fz], [fx, fy, fz + 1.0], [fx, fy + 1.0, fz + 1.0]], 0.6f32, side_uvs),
+        (wx + 1, wy, wz, [[fx + 1.0, fy + 1.0, fz + 1.0], [fx + 1.0, fy, fz + 1.0], [fx + 1.0, fy, fz], [fx + 1.0, fy + 1.0, fz]], 0.6f32, side_uvs),
     ];
 
-    let uvs = [
-        [gu0, gv1],
-        [gu1, gv1],
-        [gu1, gv0],
-        [gu0, gv0],
-    ];
-
-    for (nx, ny, nz, pos, shade) in neighbors {
+    for (nx, ny, nz, pos, shade, uvs) in neighbors {
         let nb = world.get_block(nx, ny, nz);
         if nb.id != 138 && !is_opaque_cube(nb.id) {
             let face_col = [color[0] * shade, color[1] * shade, color[2] * shade, 1.0];
@@ -5018,60 +4939,96 @@ pub fn mesh_chunk_column(chunk: &ChunkColumn, world: &World) -> MeshData {
                         continue;
                     }
 
-                    let id_above = if ly < 15 {
-                        section.block_ids[((ly + 1) << 8) | (lz << 4) | lx] as u16
+                    let (id_above, meta_above) = if ly < 15 {
+                        let idx = ((ly + 1) << 8) | (lz << 4) | lx;
+                        let id = section.block_ids[idx] as u16;
+                        let meta = if block_id == 95 && id == 95 { crate::world::get_nibble(section.block_meta.as_ref(), idx) } else { 0 };
+                        (id, meta)
                     } else if let Some(above) = sec_above {
-                        above.block_ids[(lz << 4) | lx] as u16
+                        let idx = (lz << 4) | lx;
+                        let id = above.block_ids[idx] as u16;
+                        let meta = if block_id == 95 && id == 95 { crate::world::get_nibble(above.block_meta.as_ref(), idx) } else { 0 };
+                        (id, meta)
                     } else {
-                        0
+                        (0, 0)
                     };
 
-                    let id_below = if ly > 0 {
-                        section.block_ids[((ly - 1) << 8) | (lz << 4) | lx] as u16
+                    let (id_below, meta_below) = if ly > 0 {
+                        let idx = ((ly - 1) << 8) | (lz << 4) | lx;
+                        let id = section.block_ids[idx] as u16;
+                        let meta = if block_id == 95 && id == 95 { crate::world::get_nibble(section.block_meta.as_ref(), idx) } else { 0 };
+                        (id, meta)
                     } else if let Some(below) = sec_below {
-                        below.block_ids[(15 << 8) | (lz << 4) | lx] as u16
+                        let idx = (15 << 8) | (lz << 4) | lx;
+                        let id = below.block_ids[idx] as u16;
+                        let meta = if block_id == 95 && id == 95 { crate::world::get_nibble(below.block_meta.as_ref(), idx) } else { 0 };
+                        (id, meta)
                     } else {
-                        if wy > 0 { 0 } else { 1 }
+                        (if wy > 0 { 0 } else { 1 }, 0)
                     };
 
-                    let id_west = if lx > 0 {
-                        section.block_ids[(ly << 8) | (lz << 4) | (lx - 1)] as u16
+                    let (id_west, meta_west) = if lx > 0 {
+                        let idx = (ly << 8) | (lz << 4) | (lx - 1);
+                        let id = section.block_ids[idx] as u16;
+                        let meta = if block_id == 95 && id == 95 { crate::world::get_nibble(section.block_meta.as_ref(), idx) } else { 0 };
+                        (id, meta)
                     } else if let Some(nx) = sec_nx {
-                        nx.block_ids[(ly << 8) | (lz << 4) | 15] as u16
+                        let idx = (ly << 8) | (lz << 4) | 15;
+                        let id = nx.block_ids[idx] as u16;
+                        let meta = if block_id == 95 && id == 95 { crate::world::get_nibble(nx.block_meta.as_ref(), idx) } else { 0 };
+                        (id, meta)
                     } else {
-                        0
+                        (0, 0)
                     };
 
-                    let id_east = if lx < 15 {
-                        section.block_ids[(ly << 8) | (lz << 4) | (lx + 1)] as u16
+                    let (id_east, meta_east) = if lx < 15 {
+                        let idx = (ly << 8) | (lz << 4) | (lx + 1);
+                        let id = section.block_ids[idx] as u16;
+                        let meta = if block_id == 95 && id == 95 { crate::world::get_nibble(section.block_meta.as_ref(), idx) } else { 0 };
+                        (id, meta)
                     } else if let Some(px) = sec_px {
-                        px.block_ids[(ly << 8) | (lz << 4) | 0] as u16
+                        let idx = (ly << 8) | (lz << 4) | 0;
+                        let id = px.block_ids[idx] as u16;
+                        let meta = if block_id == 95 && id == 95 { crate::world::get_nibble(px.block_meta.as_ref(), idx) } else { 0 };
+                        (id, meta)
                     } else {
-                        0
+                        (0, 0)
                     };
 
-                    let id_north = if lz > 0 {
-                        section.block_ids[(ly << 8) | ((lz - 1) << 4) | lx] as u16
+                    let (id_north, meta_north) = if lz > 0 {
+                        let idx = (ly << 8) | ((lz - 1) << 4) | lx;
+                        let id = section.block_ids[idx] as u16;
+                        let meta = if block_id == 95 && id == 95 { crate::world::get_nibble(section.block_meta.as_ref(), idx) } else { 0 };
+                        (id, meta)
                     } else if let Some(nz) = sec_nz {
-                        nz.block_ids[(ly << 8) | (15 << 4) | lx] as u16
+                        let idx = (ly << 8) | (15 << 4) | lx;
+                        let id = nz.block_ids[idx] as u16;
+                        let meta = if block_id == 95 && id == 95 { crate::world::get_nibble(nz.block_meta.as_ref(), idx) } else { 0 };
+                        (id, meta)
                     } else {
-                        0
+                        (0, 0)
                     };
 
-                    let id_south = if lz < 15 {
-                        section.block_ids[(ly << 8) | ((lz + 1) << 4) | lx] as u16
+                    let (id_south, meta_south) = if lz < 15 {
+                        let idx = (ly << 8) | ((lz + 1) << 4) | lx;
+                        let id = section.block_ids[idx] as u16;
+                        let meta = if block_id == 95 && id == 95 { crate::world::get_nibble(section.block_meta.as_ref(), idx) } else { 0 };
+                        (id, meta)
                     } else if let Some(pz) = sec_pz {
-                        pz.block_ids[(ly << 8) | (0 << 4) | lx] as u16
+                        let idx = (ly << 8) | (0 << 4) | lx;
+                        let id = pz.block_ids[idx] as u16;
+                        let meta = if block_id == 95 && id == 95 { crate::world::get_nibble(pz.block_meta.as_ref(), idx) } else { 0 };
+                        (id, meta)
                     } else {
-                        0
+                        (0, 0)
                     };
 
-                    let top_visible = should_render_face(block_id, id_above);
-                    let bottom_visible = should_render_face(block_id, id_below);
-                    let west_visible = should_render_face(block_id, id_west);
-                    let east_visible = should_render_face(block_id, id_east);
-                    let north_visible = should_render_face(block_id, id_north);
-                    let south_visible = should_render_face(block_id, id_south);
+                    let top_visible = should_render_face_meta(block_id, block.meta, id_above, meta_above);
+                    let bottom_visible = should_render_face_meta(block_id, block.meta, id_below, meta_below);
+                    let west_visible = should_render_face_meta(block_id, block.meta, id_west, meta_west);
+                    let east_visible = should_render_face_meta(block_id, block.meta, id_east, meta_east);
+                    let north_visible = should_render_face_meta(block_id, block.meta, id_north, meta_north);
+                    let south_visible = should_render_face_meta(block_id, block.meta, id_south, meta_south);
 
                     if !(top_visible || bottom_visible || west_visible || east_visible || north_visible || south_visible) {
                         continue;
@@ -5131,70 +5088,137 @@ pub fn mesh_chunk_column(chunk: &ChunkColumn, world: &World) -> MeshData {
     mesh
 }
 
-fn get_vertex_ao(side1: bool, side2: bool, corner: bool) -> f32 {
-    if side1 && side2 {
-        0.45
+pub fn get_mixed_brightness(world: &World, x: i32, y: i32, z: i32) -> u32 {
+    let b = world.get_block(x, y, z);
+    let emit = crate::world::block_emission(b.id) as u32;
+    let sky = b.sky_light as u32;
+    let block = (b.block_light as u32).max(emit);
+    (sky << 20) | (block << 4)
+}
+
+pub fn get_ao_light_value(id: u16) -> f32 {
+    if is_opaque_cube(id) {
+        0.2
     } else {
-        let count = (side1 as u8) + (side2 as u8) + (corner as u8);
-        match count {
-            0 => 1.0,
-            1 => 0.8,
-            2 => 0.65,
-            _ => 0.45,
-        }
+        1.0
     }
 }
 
-fn compute_face_ao(world: &World, wx: i32, wy: i32, wz: i32, face: BlockFace) -> [f32; 4] {
-    let is_solid = |dx: i32, dy: i32, dz: i32| -> bool {
-        is_opaque_cube(world.get_block(wx + dx, wy + dy, wz + dz).id)
+pub fn average_brightness(mut l1: u32, mut l2: u32, mut l3: u32, center: u32) -> u32 {
+    if l1 == 0 {
+        l1 = center;
+    }
+    if l2 == 0 {
+        l2 = center;
+    }
+    if l3 == 0 {
+        l3 = center;
+    }
+    ((l1 + l2 + l3 + center) >> 2) & 0x00FF_00FF
+}
+
+pub fn compute_smooth_lighting(
+    world: &World,
+    wx: i32,
+    wy: i32,
+    wz: i32,
+    face: BlockFace,
+) -> ([f32; 4], [f32; 4], [f32; 4]) {
+    let (normal, u_axis, v_axis, signs) = match face {
+        BlockFace::Bottom => (
+            (0, -1, 0),
+            (1, 0, 0),
+            (0, 0, 1),
+            [(-1, -1), (1, -1), (1, 1), (-1, 1)],
+        ),
+        BlockFace::Top => (
+            (0, 1, 0),
+            (1, 0, 0),
+            (0, 0, 1),
+            [(-1, 1), (1, 1), (1, -1), (-1, -1)],
+        ),
+        BlockFace::North => (
+            (0, 0, -1),
+            (1, 0, 0),
+            (0, 1, 0),
+            [(1, 1), (1, -1), (-1, -1), (-1, 1)],
+        ),
+        BlockFace::South => (
+            (0, 0, 1),
+            (1, 0, 0),
+            (0, 1, 0),
+            [(-1, 1), (-1, -1), (1, -1), (1, 1)],
+        ),
+        BlockFace::West => (
+            (-1, 0, 0),
+            (0, 0, 1),
+            (0, 1, 0),
+            [(-1, 1), (-1, -1), (1, -1), (1, 1)],
+        ),
+        BlockFace::East => (
+            (1, 0, 0),
+            (0, 0, 1),
+            (0, 1, 0),
+            [(1, 1), (1, -1), (-1, -1), (-1, 1)],
+        ),
     };
 
-    match face {
-        BlockFace::Top => {
-            let ao0 = get_vertex_ao(is_solid(-1, 1, 0), is_solid(0, 1, 1), is_solid(-1, 1, 1));
-            let ao1 = get_vertex_ao(is_solid(1, 1, 0), is_solid(0, 1, 1), is_solid(1, 1, 1));
-            let ao2 = get_vertex_ao(is_solid(1, 1, 0), is_solid(0, 1, -1), is_solid(1, 1, -1));
-            let ao3 = get_vertex_ao(is_solid(-1, 1, 0), is_solid(0, 1, -1), is_solid(-1, 1, -1));
-            [ao0, ao1, ao2, ao3]
-        }
-        BlockFace::Bottom => {
-            let ao0 = get_vertex_ao(is_solid(-1, -1, 0), is_solid(0, -1, -1), is_solid(-1, -1, -1));
-            let ao1 = get_vertex_ao(is_solid(1, -1, 0), is_solid(0, -1, -1), is_solid(1, -1, -1));
-            let ao2 = get_vertex_ao(is_solid(1, -1, 0), is_solid(0, -1, 1), is_solid(1, -1, 1));
-            let ao3 = get_vertex_ao(is_solid(-1, -1, 0), is_solid(0, -1, 1), is_solid(-1, -1, 1));
-            [ao0, ao1, ao2, ao3]
-        }
-        BlockFace::North => {
-            let ao0 = get_vertex_ao(is_solid(1, 0, -1), is_solid(0, 1, -1), is_solid(1, 1, -1));
-            let ao1 = get_vertex_ao(is_solid(1, 0, -1), is_solid(0, -1, -1), is_solid(1, -1, -1));
-            let ao2 = get_vertex_ao(is_solid(-1, 0, -1), is_solid(0, -1, -1), is_solid(-1, -1, -1));
-            let ao3 = get_vertex_ao(is_solid(-1, 0, -1), is_solid(0, 1, -1), is_solid(-1, 1, -1));
-            [ao0, ao1, ao2, ao3]
-        }
-        BlockFace::South => {
-            let ao0 = get_vertex_ao(is_solid(-1, 0, 1), is_solid(0, 1, 1), is_solid(-1, 1, 1));
-            let ao1 = get_vertex_ao(is_solid(-1, 0, 1), is_solid(0, -1, 1), is_solid(-1, -1, 1));
-            let ao2 = get_vertex_ao(is_solid(1, 0, 1), is_solid(0, -1, 1), is_solid(1, -1, 1));
-            let ao3 = get_vertex_ao(is_solid(1, 0, 1), is_solid(0, 1, 1), is_solid(1, 1, 1));
-            [ao0, ao1, ao2, ao3]
-        }
-        BlockFace::West => {
-            let ao0 = get_vertex_ao(is_solid(-1, 0, -1), is_solid(-1, 1, 0), is_solid(-1, 1, -1));
-            let ao1 = get_vertex_ao(is_solid(-1, 0, -1), is_solid(-1, -1, 0), is_solid(-1, -1, -1));
-            let ao2 = get_vertex_ao(is_solid(-1, 0, 1), is_solid(-1, -1, 0), is_solid(-1, -1, 1));
-            let ao3 = get_vertex_ao(is_solid(-1, 0, 1), is_solid(-1, 1, 0), is_solid(-1, 1, 1));
-            [ao0, ao1, ao2, ao3]
-        }
-        BlockFace::East => {
-            let ao0 = get_vertex_ao(is_solid(1, 0, 1), is_solid(1, 1, 0), is_solid(1, 1, 1));
-            let ao1 = get_vertex_ao(is_solid(1, 0, 1), is_solid(1, -1, 0), is_solid(1, -1, 1));
-            let ao2 = get_vertex_ao(is_solid(1, 0, -1), is_solid(1, -1, 0), is_solid(1, -1, -1));
-            let ao3 = get_vertex_ao(is_solid(1, 0, -1), is_solid(1, 1, 0), is_solid(1, 1, -1));
-            [ao0, ao1, ao2, ao3]
-        }
+    let cx = wx + normal.0;
+    let cy = wy + normal.1;
+    let cz = wz + normal.2;
+
+    let center_b = world.get_block(cx, cy, cz);
+    let center_bright = get_mixed_brightness(world, cx, cy, cz);
+    let center_ao = get_ao_light_value(center_b.id);
+
+    let mut sky_lights = [0.0; 4];
+    let mut block_lights = [0.0; 4];
+    let mut ao_factors = [0.0; 4];
+
+    for (i, &(su, sv)) in signs.iter().enumerate() {
+        let pos_s1 = (cx + su * u_axis.0, cy + su * u_axis.1, cz + su * u_axis.2);
+        let pos_s2 = (cx + sv * v_axis.0, cy + sv * v_axis.1, cz + sv * v_axis.2);
+        let pos_c = (
+            cx + su * u_axis.0 + sv * v_axis.0,
+            cy + su * u_axis.1 + sv * v_axis.1,
+            cz + su * u_axis.2 + sv * v_axis.2,
+        );
+
+        let b_s1 = world.get_block(pos_s1.0, pos_s1.1, pos_s1.2);
+        let b_s2 = world.get_block(pos_s2.0, pos_s2.1, pos_s2.2);
+
+        let s1_bright = get_mixed_brightness(world, pos_s1.0, pos_s1.1, pos_s1.2);
+        let s1_ao = get_ao_light_value(b_s1.id);
+
+        let s2_bright = get_mixed_brightness(world, pos_s2.0, pos_s2.1, pos_s2.2);
+        let s2_ao = get_ao_light_value(b_s2.id);
+
+        let (c_bright, c_ao) = if is_opaque_cube(b_s1.id) && is_opaque_cube(b_s2.id) {
+            (s1_bright, s1_ao)
+        } else {
+            let b_c = world.get_block(pos_c.0, pos_c.1, pos_c.2);
+            (
+                get_mixed_brightness(world, pos_c.0, pos_c.1, pos_c.2),
+                get_ao_light_value(b_c.id),
+            )
+        };
+
+        let vert_bright = average_brightness(s1_bright, s2_bright, c_bright, center_bright);
+        let vert_ao = (s1_ao + s2_ao + c_ao + center_ao) / 4.0;
+
+        sky_lights[i] = (((vert_bright >> 16) & 0xFF) as f32) / 240.0;
+        block_lights[i] = ((vert_bright & 0xFF) as f32) / 240.0;
+        ao_factors[i] = vert_ao;
     }
+
+    (sky_lights, block_lights, ao_factors)
 }
+
+#[allow(dead_code)]
+pub fn compute_face_ao(world: &World, wx: i32, wy: i32, wz: i32, face: BlockFace) -> [f32; 4] {
+    compute_smooth_lighting(world, wx, wy, wz, face).2
+}
+
 
 fn add_quad(
     mesh: &mut MeshData,
@@ -5251,23 +5275,22 @@ fn add_quad_with_rot(
         None => [shade, shade, shade, alpha],
     };
 
-    let (adj_x, adj_y, adj_z) = match face {
-        BlockFace::Top => (wx, wy + 1, wz),
-        BlockFace::Bottom => (wx, wy - 1, wz),
-        BlockFace::North => (wx, wy, wz - 1),
-        BlockFace::South => (wx, wy, wz + 1),
-        BlockFace::West => (wx - 1, wy, wz),
-        BlockFace::East => (wx + 1, wy, wz),
-    };
-    let adj_b = world.get_block(adj_x, adj_y, adj_z);
     let emit = crate::world::block_emission(block.id);
-    let sky_l = (adj_b.sky_light as f32 / 15.0).clamp(0.0, 1.0);
-    let block_l = ((adj_b.block_light.max(emit)) as f32 / 15.0).clamp(0.0, 1.0);
-
-    let ao = if is_water {
-        [1.0, 1.0, 1.0, 1.0]
+    let (sky_lights, block_lights, ao) = if is_water || emit > 0 {
+        let (adj_x, adj_y, adj_z) = match face {
+            BlockFace::Top => (wx, wy + 1, wz),
+            BlockFace::Bottom => (wx, wy - 1, wz),
+            BlockFace::North => (wx, wy, wz - 1),
+            BlockFace::South => (wx, wy, wz + 1),
+            BlockFace::West => (wx - 1, wy, wz),
+            BlockFace::East => (wx + 1, wy, wz),
+        };
+        let adj_b = world.get_block(adj_x, adj_y, adj_z);
+        let sky_l = (adj_b.sky_light as f32 / 15.0).clamp(0.0, 1.0);
+        let block_l = ((adj_b.block_light.max(emit)) as f32 / 15.0).clamp(0.0, 1.0);
+        ([sky_l; 4], [block_l; 4], [1.0; 4])
     } else {
-        compute_face_ao(world, wx, wy, wz, face)
+        compute_smooth_lighting(world, wx, wy, wz, face)
     };
 
     let quad = match face {
@@ -5342,7 +5365,7 @@ fn add_quad_with_rot(
                 position: pos,
                 uv,
                 color: final_color,
-                normal: [sky_l, block_l, ao[i]],
+                normal: [sky_lights[i], block_lights[i], ao[i]],
             });
         }
         mesh.transparent_indices.extend_from_slice(&[
@@ -5360,7 +5383,7 @@ fn add_quad_with_rot(
                 position: pos,
                 uv,
                 color: final_color,
-                normal: [sky_l, block_l, ao[i]],
+                normal: [sky_lights[i], block_lights[i], ao[i]],
             });
         }
         mesh.indices.extend_from_slice(&[
@@ -5812,15 +5835,32 @@ mod tests {
 
     #[test]
     fn test_stained_glass_culling() {
-        // Adjacent stained glass blocks cull faces between each other
+        // Minecraft 1.7.10 BlockBreakable (alk.class):
+        // Adjacent stained glass blocks of the SAME color cull faces between each other
+        assert!(!should_render_face_meta(95, 0, 95, 0));
+        assert!(!should_render_face_meta(95, 14, 95, 14));
         assert!(!should_render_face(95, 95));
-        assert!(!should_render_face(95, 20));
-        assert!(!should_render_face(20, 95));
+
+        // Adjacent stained glass blocks of DIFFERENT colors render their faces (visible through each other)
+        assert!(should_render_face_meta(95, 0, 95, 1));
+        assert!(should_render_face_meta(95, 14, 95, 11));
+
+        // Stained glass adjacent to clear glass renders its face
+        assert!(should_render_face_meta(95, 0, 20, 0));
+        assert!(should_render_face_meta(95, 5, 20, 0));
+        assert!(should_render_face_meta(20, 0, 95, 0));
+        assert!(should_render_face_meta(20, 0, 95, 5));
+
         // Stained glass adjacent to air renders its face
+        assert!(should_render_face_meta(95, 0, 0, 0));
         assert!(should_render_face(95, 0));
+
         // Stained glass against solid stone is culled (stone covers it)
+        assert!(!should_render_face_meta(95, 0, 1, 0));
         assert!(!should_render_face(95, 1));
+
         // Stone against stained glass renders its face (visible through glass)
+        assert!(should_render_face_meta(1, 0, 95, 0));
         assert!(should_render_face(1, 95));
     }
 
@@ -6036,6 +6076,29 @@ mod tests {
         let max_x_r = mesh_r.vertices.iter().map(|v| v.position[0]).fold(f32::NEG_INFINITY, f32::max);
         assert!((min_x_r - 11.0).abs() < 1e-4);
         assert!((max_x_r - 11.9375).abs() < 1e-4);
+
+        // Verify back face UVs (face 3 = vertices 12..16)
+        // Left half (mesh_r at x=11, slot 284):
+        // Inner seam (x=11.0, verts 12 & 13) has u = u0_bl
+        // Outer edge (x=11.9375, verts 14 & 15) has u = u0_bl + du_bl * 15/16
+        let (u0_bl, _, u1_bl, _) = crate::texture::get_slot_uv(284);
+        let du_bl = u1_bl - u0_bl;
+        let back_r = &mesh_r.vertices[12..16];
+        assert!((back_r[0].uv[0] - u0_bl).abs() < 1e-4, "left half inner seam top UV");
+        assert!((back_r[1].uv[0] - u0_bl).abs() < 1e-4, "left half inner seam bot UV");
+        assert!((back_r[2].uv[0] - (u0_bl + du_bl * (15.0 / 16.0))).abs() < 1e-4, "left half outer edge bot UV");
+        assert!((back_r[3].uv[0] - (u0_bl + du_bl * (15.0 / 16.0))).abs() < 1e-4, "left half outer edge top UV");
+
+        // Right half (mesh_l at x=10, slot 288):
+        // Outer edge (x=10.0625, verts 12 & 13) has u = u0_br + du_br * 1/16
+        // Inner seam (x=11.0, verts 14 & 15) has u = u1_br
+        let (u0_br, _, u1_br, _) = crate::texture::get_slot_uv(288);
+        let du_br = u1_br - u0_br;
+        let back_l = &mesh_l.vertices[12..16];
+        assert!((back_l[0].uv[0] - (u0_br + du_br * (1.0 / 16.0))).abs() < 1e-4, "right half outer edge top UV");
+        assert!((back_l[1].uv[0] - (u0_br + du_br * (1.0 / 16.0))).abs() < 1e-4, "right half outer edge bot UV");
+        assert!((back_l[2].uv[0] - u1_br).abs() < 1e-4, "right half inner seam bot UV");
+        assert!((back_l[3].uv[0] - u1_br).abs() < 1e-4, "right half inner seam top UV");
     }
 
     #[test]
@@ -6130,12 +6193,42 @@ mod tests {
         let mut mesh = MeshData::new();
         let beacon = Block { id: 138, meta: 0, sky_light: 15, block_light: 0 };
         add_beacon_quads(&mut mesh, &world, 10, 64, 10, beacon);
-        // Base box (24) + Inner diamond core (24) = 48 opaque vertices
+        // Base box (24) + Inner core (24) = 48 opaque vertices
         assert_eq!(mesh.vertices.len(), 48);
         assert_eq!(mesh.indices.len(), 72);
         // Glass cube casing: 6 faces * 4 vertices = 24 transparent vertices
         assert_eq!(mesh.transparent_vertices.len(), 24);
         assert_eq!(mesh.transparent_indices.len(), 36);
+
+        // Verify obsidian base bounds (vertices 0..24)
+        let obs_verts = &mesh.vertices[0..24];
+        let obs_min_y = obs_verts.iter().map(|v| v.position[1]).fold(f32::INFINITY, f32::min);
+        let obs_max_y = obs_verts.iter().map(|v| v.position[1]).fold(f32::NEG_INFINITY, f32::max);
+        assert!((obs_min_y - (64.0 + 0.1 / 16.0)).abs() < 1e-4, "obsidian base bottom must be at 64.00625, got {}", obs_min_y);
+        assert!((obs_max_y - (64.0 + 3.0 / 16.0)).abs() < 1e-4);
+
+        // Verify beacon core bounds (vertices 24..48): 10x11x10 [3/16, 3/16, 3/16] to [13/16, 14/16, 13/16]
+        let core_verts = &mesh.vertices[24..48];
+        let core_min_x = core_verts.iter().map(|v| v.position[0]).fold(f32::INFINITY, f32::min);
+        let core_max_x = core_verts.iter().map(|v| v.position[0]).fold(f32::NEG_INFINITY, f32::max);
+        let core_min_y = core_verts.iter().map(|v| v.position[1]).fold(f32::INFINITY, f32::min);
+        let core_max_y = core_verts.iter().map(|v| v.position[1]).fold(f32::NEG_INFINITY, f32::max);
+        assert!((core_min_x - (10.0 + 3.0 / 16.0)).abs() < 1e-4);
+        assert!((core_max_x - (10.0 + 13.0 / 16.0)).abs() < 1e-4);
+        assert!((core_min_y - (64.0 + 3.0 / 16.0)).abs() < 1e-4);
+        assert!((core_max_y - (64.0 + 14.0 / 16.0)).abs() < 1e-4);
+
+        // Verify glass casing side faces have vertical V coordinates (upright texture, not rotated 90 deg)
+        let (_, gv0, _, gv1) = crate::texture::get_slot_uv(13);
+        // North face is transparent_vertices[8..12]
+        let north_glass = &mesh.transparent_vertices[8..12];
+        for v in north_glass {
+            if (v.position[1] - 65.0).abs() < 1e-4 {
+                assert!((v.uv[1] - gv0).abs() < 1e-4, "top of north glass must have v = gv0");
+            } else if (v.position[1] - 64.0).abs() < 1e-4 {
+                assert!((v.uv[1] - gv1).abs() < 1e-4, "bottom of north glass must have v = gv1");
+            }
+        }
     }
 
     #[test]
@@ -6152,16 +6245,127 @@ mod tests {
     #[test]
     fn test_enchanting_book_model() {
         let mut mesh_closed = MeshData::new();
-        build_enchanting_book_model(&mut mesh_closed, 10.0, 64.0, 10.0, 0.0, 0.0);
-        // 6 quads (closed book on table) = 24 vertices, 36 indices
-        assert_eq!(mesh_closed.vertices.len(), 24);
-        assert_eq!(mesh_closed.indices.len(), 36);
+        build_enchanting_book_model(&mut mesh_closed, 10.0, 64.0, 10.0, 0.0, 0.0, 0.0, 0.0, [1.0, 0.0, 1.0]);
+        // Canonical Minecraft 1.7.10 ModelBook: 18 quads = 72 vertices, 108 indices
+        assert_eq!(mesh_closed.vertices.len(), 72);
+        assert_eq!(mesh_closed.indices.len(), 108);
 
         let mut mesh_open = MeshData::new();
-        build_enchanting_book_model(&mut mesh_open, 10.0, 64.0, 10.0, 0.0, 1.0);
-        // 9 quads (floating open book with 3D page slabs) = 36 vertices, 54 indices
-        assert_eq!(mesh_open.vertices.len(), 36);
-        assert_eq!(mesh_open.indices.len(), 54);
+        build_enchanting_book_model(&mut mesh_open, 10.0, 64.0, 10.0, 0.0, 1.0, 0.5, 0.5, [1.0, 0.0, 1.0]);
+        // Open book with 4 flipping page quads: 22 quads = 88 vertices, 132 indices
+        assert_eq!(mesh_open.vertices.len(), 88);
+        assert_eq!(mesh_open.indices.len(), 132);
+    }
+
+    #[test]
+    fn test_average_brightness_zero_fallback() {
+        let center = (15 << 20) | (0 << 4);
+        let s1 = (15 << 20) | (0 << 4);
+        let s2 = 0; // solid wall block with 0 brightness
+        let corner = (15 << 20) | (0 << 4);
+
+        let avg = average_brightness(s1, s2, corner, center);
+        // Because s2 == 0, it falls back to center, so all 4 samples are center (15 << 20).
+        let sky = ((avg >> 16) & 0xFF) as f32 / 240.0;
+        let block = (avg & 0xFF) as f32 / 240.0;
+        assert!((sky - 1.0).abs() < 1e-4);
+        assert!((block - 0.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_smooth_lighting_open_air() {
+        let mut world = World::new();
+        world.insert_chunk(crate::world::ChunkColumn::new(0, 0));
+        // Set stone block at (10, 64, 10)
+        world.set_block(10, 64, 10, Block { id: 1, meta: 0, sky_light: 0, block_light: 0 });
+        // Set sunlight on surrounding air
+        for dx in -1..=1 {
+            for dz in -1..=1 {
+                world.set_block(10 + dx, 65, 10 + dz, Block { id: 0, meta: 0, sky_light: 15, block_light: 0 });
+            }
+        }
+
+        let (sky, block, ao) = compute_smooth_lighting(&world, 10, 64, 10, BlockFace::Top);
+        for i in 0..4 {
+            assert!((sky[i] - 1.0).abs() < 1e-4, "sky light at vert {} should be 1.0, got {}", i, sky[i]);
+            assert!((block[i] - 0.0).abs() < 1e-4, "block light at vert {} should be 0.0, got {}", i, block[i]);
+            assert!((ao[i] - 1.0).abs() < 1e-4, "ao at vert {} should be 1.0, got {}", i, ao[i]);
+        }
+    }
+
+    #[test]
+    fn test_smooth_lighting_corner_occlusion() {
+        let mut world = World::new();
+        world.insert_chunk(crate::world::ChunkColumn::new(0, 0));
+        // Floor at (10, 64, 10)
+        world.set_block(10, 64, 10, Block { id: 1, meta: 0, sky_light: 0, block_light: 0 });
+        // Wall block to the west (9, 65, 10)
+        world.set_block(9, 65, 10, Block { id: 1, meta: 0, sky_light: 0, block_light: 0 });
+        // Ambient air with sky_light 15
+        for dx in -1..=1 {
+            for dz in -1..=1 {
+                if dx == -1 && dz == 0 {
+                    continue; // wall block
+                }
+                world.set_block(10 + dx, 65, 10 + dz, Block { id: 0, meta: 0, sky_light: 15, block_light: 0 });
+            }
+        }
+
+        let (sky, _block, ao) = compute_smooth_lighting(&world, 10, 64, 10, BlockFace::Top);
+        // Vertices 0 and 3 are on the -X side (touching the wall at (9, 65, 10))
+        // They should have AO darkened: (0.2 + 1.0 + 1.0 + 1.0)/4.0 = 0.8
+        assert!((ao[0] - 0.8).abs() < 1e-4, "vert 0 ao should be 0.8, got {}", ao[0]);
+        assert!((ao[3] - 0.8).abs() < 1e-4, "vert 3 ao should be 0.8, got {}", ao[3]);
+        // Vertices 1 and 2 are on the +X side (away from wall)
+        assert!((ao[1] - 1.0).abs() < 1e-4, "vert 1 ao should be 1.0, got {}", ao[1]);
+        assert!((ao[2] - 1.0).abs() < 1e-4, "vert 2 ao should be 1.0, got {}", ao[2]);
+        // Sky light should remain 1.0 due to zero fallback
+        assert!((sky[0] - 1.0).abs() < 1e-4);
+        assert!((sky[3] - 1.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_emissive_blocks_flat_lighting() {
+        let mut world = World::new();
+        world.insert_chunk(crate::world::ChunkColumn::new(0, 0));
+        let glowstone = Block { id: 89, meta: 0, sky_light: 0, block_light: 15 };
+        world.set_block(10, 64, 10, glowstone);
+
+        let mut mesh = MeshData::new();
+        add_quad_with_rot(&mut mesh, &world, 10, 64, 10, BlockFace::Top, glowstone, 1.0, 0);
+        assert_eq!(mesh.vertices.len(), 4);
+        for v in &mesh.vertices {
+            // Emissive blocks in 1.7.10 do not use AO darkening (ao = 1.0)
+            assert!((v.normal[2] - 1.0).abs() < 1e-4, "emissive block vert should have ao 1.0, got {}", v.normal[2]);
+            // Block light should be full emission (1.0)
+            assert!((v.normal[1] - 1.0).abs() < 1e-4, "emissive block vert should have block_light 1.0, got {}", v.normal[1]);
+        }
+    }
+
+    #[test]
+    fn test_smooth_lighting_all_faces() {
+        let mut world = World::new();
+        world.insert_chunk(crate::world::ChunkColumn::new(0, 0));
+        world.set_block(8, 64, 8, Block { id: 1, meta: 0, sky_light: 0, block_light: 0 });
+        for face in [
+            BlockFace::Bottom,
+            BlockFace::Top,
+            BlockFace::North,
+            BlockFace::South,
+            BlockFace::West,
+            BlockFace::East,
+        ] {
+            let (sky, block, ao) = compute_smooth_lighting(&world, 8, 64, 8, face);
+            assert_eq!(sky.len(), 4);
+            assert_eq!(block.len(), 4);
+            assert_eq!(ao.len(), 4);
+            for i in 0..4 {
+                assert!(sky[i] >= 0.0 && sky[i] <= 1.0);
+                assert!(block[i] >= 0.0 && block[i] <= 1.0);
+                assert!(ao[i] >= 0.0 && ao[i] <= 1.0);
+            }
+        }
     }
 }
+
 

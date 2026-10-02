@@ -1,0 +1,201 @@
+>   public azw a(sa, float);
+      Code:
+         0: aload_0
+         1: fload_2
+         2: invokevirtual #343                // Method c:(F)F
+         5: fstore_3
+         6: fload_3
+         7: ldc           #24                 // float 3.1415927f
+         9: fmul
+        10: fconst_2
+        11: fmul
+        12: invokestatic  #528                // Method qh.b:(F)F
+        15: fconst_2
+        16: fmul
+        17: ldc           #14                 // float 0.5f
+        19: fadd
+        20: fstore        4
+        22: fload         4
+        24: fconst_0
+        25: fcmpg
+        26: ifge          32
+        29: fconst_0
+        30: fstore        4
+        32: fload         4
+        34: fconst_1
+        35: fcmpl
+        36: ifle          42
+        39: fconst_1
+        40: fstore        4
+        42: aload_1
+        43: getfield      #289                // Field sa.s:D
+        46: invokestatic  #529                // Method qh.c:(D)I
+        49: istore        5
+        51: aload_1
+        52: getfield      #290                // Field sa.t:D
+        55: invokestatic  #529                // Method qh.c:(D)I
+        58: istore        6
+        60: aload_1
+        61: getfield      #291                // Field sa.u:D
+        64: invokestatic  #529                // Method qh.c:(D)I
+        67: istore        7
+        69: aload_0
+        70: iload         5
+        72: iload         7
+        74: invokevirtual #318                // Method a:(II)Lahu;
+        77: astore        8
+        79: aload         8
+        81: iload         5
+        83: iload         6
+        85: iload         7
+        87: invokevirtual #385                // Method ahu.a:(III)F
+        90: fstore        9
+        92: aload         8
+        94: fload         9
+        96: invokevirtual #384                // Method ahu.a:(F)I
+        99: istore        10
+       101: iload         10
+       103: bipush        16
+       105: ishr
+       106: sipush        255
+       109: iand
+       110: i2f
+       111: ldc           #29                 // float 255.0f
+       113: fdiv
+       114: fstore        11
+       116: iload         10
+       118: bipush        8
+       120: ishr
+       121: sipush        255
+       124: iand
+       125: i2f
+       126: ldc           #29                 // float 255.0f
+       128: fdiv
+       129: fstore        12
+       131: iload         10
+       133: sipush        255
+       136: iand
+       137: i2f
+       138: ldc           #29                 // float 255.0f
+       140: fdiv
+       141: fstore        13
+       143: fload         11
+       145: fload         4
+       147: fmul
+       148: fstore        11
+       150: fload         12
+       152: fload         4
+       154: fmul
+       155: fstore        12
+       157: fload         13
+       159: fload         4
+       161: fmul
+       162: fstore        13
+       164: aload_0
+       165: fload_2
+       166: invokevirtual #369                // Method j:(F)F
+       169: fstore        14
+       171: fload         14
+       173: fconst_0
+       174: fcmpl
+       175: ifle          254
+       178: fload         11
+       180: ldc           #12                 // float 0.3f
+       182: fmul
+       183: fload         12
+       185: ldc           #15                 // float 0.59f
+       187: fmul
+       188: fadd
+       189: fload         13
+       191: ldc           #8                  // float 0.11f
+       193: fmul
+       194: fadd
+       195: ldc           #16                 // float 0.6f
+       197: fmul
+       198: fstore        15
+       200: fconst_1
+       201: fload         14
+       203: ldc           #18                 // float 0.75f
+       205: fmul
+       206: fsub
+       207: fstore        16
+       209: fload         11
+       211: fload         16
+       213: fmul
+       214: fload         15
+       216: fconst_1
+       217: fload         16
+       219: fsub
+       220: fmul
+       221: fadd
+       222: fstore        11
+       224: fload         12
+       226: fload         16
+       228: fmul
+       229: fload         15
+       231: fconst_1
+       232: fload         16
+       234: fsub
+       235: fmul
+       236: fadd
+       237: fstore        12
+       239: fload         13
+       241: fload         16
+       243: fmul
+       244: fload         15
+       246: fconst_1
+       247: fload         16
+       249: fsub
+       250: fmul
+       251: fadd
+       252: fstore        13
+       254: aload_0
+       255: fload_2
+       256: invokevirtual #365                // Method h:(F)F
+       259: fstore        15
+       261: fload         15
+       263: fconst_0
+       264: fcmpl
+       265: ifle          344
+       268: fload         11
+       270: ldc           #12                 // float 0.3f
+       272: fmul
+       273: fload         12
+       275: ldc           #15                 // float 0.59f
+       277: fmul
+       278: fadd
+       279: fload         13
+       281: ldc           #8                  // float 0.11f
+       283: fmul
+       284: fadd
+       285: ldc           #10                 // float 0.2f
+       287: fmul
+       288: fstore        16
+       290: fconst_1
+       291: fload         15
+       293: ldc           #18                 // float 0.75f
+       295: fmul
+       296: fsub
+       297: fstore        17
+       299: fload         11
+       301: fload         17
+       303: fmul
+       304: fload         16
+       306: fconst_1
+       307: fload         17
+       309: fsub
+       310: fmul
+       311: fadd
+       312: fstore        11
+       314: fload         12
+       316: fload         17
+       318: fmul
+       319: fload         16
+       321: fconst_1
+       322: fload         17
+       324: fsub
+       325: fmul
+       326: fadd
+       327: fstore        12
+       329: fload         13
+       331: fload         17

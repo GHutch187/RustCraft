@@ -257,22 +257,33 @@ impl ResourcePackManager {
             }
         }
 
-        // 2. Check options.txt
-        for opt_candidate in &["options.txt", "resourcepacks/options.txt"] {
-            let opt_path = Path::new(opt_candidate);
+        // 2. Check options.txt and resourcepack directories
+        let opt_candidates = [
+            PathBuf::from("options.txt"),
+            PathBuf::from("resourcepacks/options.txt"),
+            PathBuf::from(r"C:\Users\mprac\AppData\Roaming\PrismLauncher\instances\1.7.10\minecraft\options.txt"),
+        ];
+        let rp_dirs = [
+            rp_dir.to_path_buf(),
+            PathBuf::from(r"C:\Users\mprac\AppData\Roaming\PrismLauncher\instances\1.7.10\minecraft\resourcepacks"),
+        ];
+
+        for opt_path in &opt_candidates {
             if opt_path.is_file() {
                 if let Ok(content) = std::fs::read_to_string(opt_path) {
                     if let Some(selected) = parse_options_resource_pack(&content) {
-                        let candidate_path = rp_dir.join(&selected);
-                        if candidate_path.is_file() {
-                            if let Ok(pack) = ResourcePack::from_zip(&candidate_path) {
-                                println!("[RESOURCE PACK] Loaded from options.txt: '{}' ({} custom textures)", pack.name, pack.textures.len());
-                                return Self { active_pack: Some(pack) };
-                            }
-                        } else if candidate_path.is_dir() {
-                            if let Ok(pack) = ResourcePack::from_directory(&candidate_path) {
-                                println!("[RESOURCE PACK] Loaded from options.txt: '{}' ({} custom textures)", pack.name, pack.textures.len());
-                                return Self { active_pack: Some(pack) };
+                        for search_dir in &rp_dirs {
+                            let candidate_path = search_dir.join(&selected);
+                            if candidate_path.is_file() {
+                                if let Ok(pack) = ResourcePack::from_zip(&candidate_path) {
+                                    println!("[RESOURCE PACK] Loaded from {:?}: '{}' ({} custom textures)", opt_path, pack.name, pack.textures.len());
+                                    return Self { active_pack: Some(pack) };
+                                }
+                            } else if candidate_path.is_dir() {
+                                if let Ok(pack) = ResourcePack::from_directory(&candidate_path) {
+                                    println!("[RESOURCE PACK] Loaded from {:?}: '{}' ({} custom textures)", opt_path, pack.name, pack.textures.len());
+                                    return Self { active_pack: Some(pack) };
+                                }
                             }
                         }
                     }

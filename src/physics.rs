@@ -299,27 +299,51 @@ pub fn get_colliding_bounding_boxes(world: &World, box_to_check: &AABB) -> Vec<A
             for bz in min_z..=max_z {
                 let block = world.get_block(bx, by, bz);
                 if has_collision(block.id) {
-                    let (min_y_off, max_y_off) = match block.id {
-                        120 => (0.0, 13.0 / 16.0),
-                        44 | 126 => {
-                            if (block.meta & 8) != 0 {
-                                (0.5, 1.0)
-                            } else {
-                                (0.0, 0.5)
-                            }
+                    if block.id == 120 {
+                        // Minecraft 1.7.10 BlockEndPortalFrame (aku.class):
+                        // Base frame: [0.0, 0.0, 0.0] to [1.0, 0.8125, 1.0] (13/16 height)
+                        boxes.push(AABB {
+                            min_x: bx as f64,
+                            min_y: by as f64,
+                            min_z: bz as f64,
+                            max_x: (bx + 1) as f64,
+                            max_y: by as f64 + 13.0 / 16.0,
+                            max_z: (bz + 1) as f64,
+                        });
+                        // Eye of ender (if present, meta & 4 != 0):
+                        // [0.3125, 0.8125, 0.3125] to [0.6875, 1.0, 0.6875] (5/16 to 11/16, height 13/16 to 1.0)
+                        if (block.meta & 4) != 0 {
+                            boxes.push(AABB {
+                                min_x: bx as f64 + 0.3125,
+                                min_y: by as f64 + 13.0 / 16.0,
+                                min_z: bz as f64 + 0.3125,
+                                max_x: bx as f64 + 0.6875,
+                                max_y: by as f64 + 1.0,
+                                max_z: bz as f64 + 0.6875,
+                            });
                         }
-                        26 => (0.0, 9.0 / 16.0),
-                        171 => (0.0, 1.0 / 16.0),
-                        _ => (0.0, 1.0),
-                    };
-                    boxes.push(AABB {
-                        min_x: bx as f64,
-                        min_y: by as f64 + min_y_off,
-                        min_z: bz as f64,
-                        max_x: (bx + 1) as f64,
-                        max_y: by as f64 + max_y_off,
-                        max_z: (bz + 1) as f64,
-                    });
+                    } else {
+                        let (min_y_off, max_y_off) = match block.id {
+                            44 | 126 => {
+                                if (block.meta & 8) != 0 {
+                                    (0.5, 1.0)
+                                } else {
+                                    (0.0, 0.5)
+                                }
+                            }
+                            26 => (0.0, 9.0 / 16.0),
+                            171 => (0.0, 1.0 / 16.0),
+                            _ => (0.0, 1.0),
+                        };
+                        boxes.push(AABB {
+                            min_x: bx as f64,
+                            min_y: by as f64 + min_y_off,
+                            min_z: bz as f64,
+                            max_x: (bx + 1) as f64,
+                            max_y: by as f64 + max_y_off,
+                            max_z: (bz + 1) as f64,
+                        });
+                    }
                 }
             }
         }
@@ -762,12 +786,23 @@ mod tests {
 
         let mut world = World::new();
         world.insert_chunk(crate::world::ChunkColumn::new(0, 0));
+        // Frame without eye: meta = 0
         world.set_block(0, 64, 0, crate::world::Block { id: 120, meta: 0, block_light: 0, sky_light: 15 });
 
         let bb = AABB::for_player(0.5, 64.0, 0.5);
         let boxes = get_colliding_bounding_boxes(&world, &bb);
         assert_eq!(boxes.len(), 1);
         assert!((boxes[0].max_y - (64.0 + 13.0 / 16.0)).abs() < 1e-4);
+
+        // Frame with eye: meta = 4 (adds eye bounding box [0.3125..0.6875, 0.8125..1.0, 0.3125..0.6875])
+        world.set_block(0, 64, 0, crate::world::Block { id: 120, meta: 4, block_light: 0, sky_light: 15 });
+        let boxes_eye = get_colliding_bounding_boxes(&world, &bb);
+        assert_eq!(boxes_eye.len(), 2);
+        assert!((boxes_eye[0].max_y - (64.0 + 13.0 / 16.0)).abs() < 1e-4);
+        assert!((boxes_eye[1].min_y - (64.0 + 13.0 / 16.0)).abs() < 1e-4);
+        assert!((boxes_eye[1].max_y - 65.0).abs() < 1e-4);
+        assert!((boxes_eye[1].min_x - 0.3125).abs() < 1e-4);
+        assert!((boxes_eye[1].max_x - 0.6875).abs() < 1e-4);
     }
 }
 

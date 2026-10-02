@@ -26,7 +26,7 @@ use winit::event::{DeviceEvent, DeviceId, ElementState, KeyEvent, MouseButton, W
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{CursorGrabMode, Window, WindowId};
-use world::{Block, ChunkColumn, World};
+use world::{Block, ChunkColumn, World, block_emission, is_opaque_cube};
 
 struct BulkChunkMeta {
     x: i32,
@@ -289,6 +289,103 @@ fn get_break_ticks(block_id: u16) -> u32 {
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct EnchantingTableAnimation {
+    pub yaw: f32,
+    pub yaw_prev: f32,
+    pub target_yaw: f32,
+    pub book_spread: f32,
+    pub book_spread_prev: f32,
+    pub page_flip: f32,
+    pub page_flip_prev: f32,
+    pub flip_t: f32,
+    pub flip_a: f32,
+    pub tick_accum: f32,
+    pub rng_state: u64,
+}
+
+impl EnchantingTableAnimation {
+    pub fn new(initial_yaw: f32, seed: u64) -> Self {
+        Self {
+            yaw: initial_yaw,
+            yaw_prev: initial_yaw,
+            target_yaw: initial_yaw,
+            book_spread: 0.0,
+            book_spread_prev: 0.0,
+            page_flip: 0.0,
+            page_flip_prev: 0.0,
+            flip_t: 0.0,
+            flip_a: 0.0,
+            tick_accum: 0.0,
+            rng_state: seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407),
+        }
+    }
+
+    fn next_u32(&mut self) -> u32 {
+        self.rng_state = self.rng_state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        (self.rng_state >> 32) as u32
+    }
+
+    fn next_int(&mut self, n: u32) -> i32 {
+        if n == 0 { return 0; }
+        (self.next_u32() % n) as i32
+    }
+
+    pub fn tick(&mut self, player_near: bool, player_target_yaw: f32) {
+        self.book_spread_prev = self.book_spread;
+        self.yaw_prev = self.yaw;
+        self.page_flip_prev = self.page_flip;
+
+        if player_near {
+            self.target_yaw = player_target_yaw;
+            self.book_spread += 0.1;
+
+            if self.book_spread < 0.5 || self.next_int(40) == 0 {
+                let f1 = self.flip_t;
+                loop {
+                    let d = self.next_int(4) - self.next_int(4);
+                    self.flip_t += d as f32;
+                    if (self.flip_t - f1).abs() > 1e-4 {
+                        break;
+                    }
+                }
+            }
+        } else {
+            // Idle spinning: target rotation increases by 0.02 rad per tick (exact 1.7.10)
+            self.target_yaw += 0.02;
+            self.book_spread -= 0.1;
+        }
+
+        while self.yaw >= std::f32::consts::PI {
+            self.yaw -= std::f32::consts::TAU;
+        }
+        while self.yaw < -std::f32::consts::PI {
+            self.yaw += std::f32::consts::TAU;
+        }
+        while self.target_yaw >= std::f32::consts::PI {
+            self.target_yaw -= std::f32::consts::TAU;
+        }
+        while self.target_yaw < -std::f32::consts::PI {
+            self.target_yaw += std::f32::consts::TAU;
+        }
+
+        let mut diff = self.target_yaw - self.yaw;
+        while diff >= std::f32::consts::PI {
+            diff -= std::f32::consts::TAU;
+        }
+        while diff < -std::f32::consts::PI {
+            diff += std::f32::consts::TAU;
+        }
+
+        self.yaw += diff * 0.4;
+        self.book_spread = self.book_spread.clamp(0.0, 1.0);
+
+        let f = ((self.flip_t - self.page_flip) * 0.4).clamp(-0.2, 0.2);
+        self.flip_a += (f - self.flip_a) * 0.9;
+        self.page_flip += self.flip_a;
+    }
+}
+
 struct App {
     window: Option<Arc<Window>>,
     render_state: Option<RenderState>,
@@ -302,6 +399,8 @@ struct App {
     fps_frame_count: u32,
     current_fps: u32,
     pending_skins: Arc<Mutex<Vec<(String, Vec<u8>)>>>,
+    enchanting_books: HashMap<(i32, i32, i32), EnchantingTableAnimation>,
+    last_book_update: Instant,
 }
 
 impl ApplicationHandler for App {
@@ -336,7 +435,7 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::RedrawRequested => {
-                let (pos, yaw, pitch, cx, cz, camera_mode, p_x, p_y, p_z, show_debug, eye_height, on_ground, world_time) = {
+                let (pos, yaw, pitch, cx, cz, camera_mode, p_x, p_y, p_z, show_debug, eye_height, on_ground, world_time, local_player_valid) = {
                     let p = self.player.lock().unwrap();
                     let eye_height = if p.sneaking { 1.54 } else { 1.62 };
 
@@ -360,6 +459,7 @@ impl ApplicationHandler for App {
                         eye_height,
                         p.on_ground,
                         p.world_time,
+                        p.spawned && !p.is_dead,
                     )
                 };
 
@@ -428,41 +528,126 @@ impl ApplicationHandler for App {
                 if let Some(ref mut rs) = self.render_state {
                     rs.update_camera(cam_pos, cam_yaw, cam_pitch, world_time);
                     rs.prune_distant_chunks(cx, cz, 6);
+                    {
+                        let w = self.world.lock().unwrap();
+                        rs.chunk_meshes.retain(|coord, _| w.contains_chunk(coord.0, coord.1));
+                    }
                     rs.prune_player_meshes(&active_players);
                     for ((mcx, mcz), mesh_data) in updated_meshes {
                         rs.upload_chunk_mesh(mcx, mcz, &mesh_data);
                     }
 
-                    // Build dynamic enchanting table book models facing the player
+                    // Build dynamic enchanting table book models
                     {
-                        let w = self.world.lock().unwrap();
+                        let tables_with_light: Vec<((i32, i32, i32), [f32; 3])> = {
+                            let w = self.world.lock().unwrap();
+                            w.enchanting_tables
+                                .iter()
+                                .map(|&(tx, ty, tz)| {
+                                    let b = w.get_block(tx, ty + 1, tz);
+                                    let tb = w.get_block(tx, ty, tz);
+                                    let sky_l = (b.sky_light.max(tb.sky_light) as f32 / 15.0).clamp(0.0, 1.0);
+                                    let block_l = (b.block_light.max(tb.block_light) as f32 / 15.0).clamp(0.0, 1.0);
+                                    ((tx, ty, tz), [sky_l, block_l, 1.0])
+                                })
+                                .collect()
+                        };
+                        self.enchanting_books.retain(|k, _| tables_with_light.iter().any(|(t, _)| t == k));
+
                         let mut book_mesh = mesh::MeshData::new();
-                        let player_x = p_x as f32;
-                        let player_z = p_z as f32;
-                        for &(tx, ty, tz) in &w.enchanting_tables {
+                        let dt = self.last_book_update.elapsed().as_secs_f32().min(0.1);
+                        self.last_book_update = Instant::now();
+
+                        let mut all_players: Vec<(f64, f64, f64)> = Vec::new();
+                        if local_player_valid {
+                            all_players.push((p_x, p_y, p_z));
+                        }
+                        if let Ok(ents) = self.entities.try_lock() {
+                            for rp in ents.values() {
+                                all_players.push((rp.x, rp.y, rp.z));
+                            }
+                        }
+
+                        for &((tx, ty, tz), light) in &tables_with_light {
                             let ftx = tx as f32;
                             let fty = ty as f32;
                             let ftz = tz as f32;
-                            let dx = player_x - (ftx + 0.5);
-                            let dz = player_z - (ftz + 0.5);
-                            let dist = (dx * dx + dz * dz).sqrt();
-                            if dist < 48.0 {
-                                let book_yaw = (-dx).atan2(-dz);
-                                // Minecraft: opens within 3 blocks
-                                let open_factor = if dist <= 2.5 {
-                                    1.0
-                                } else if dist <= 3.5 {
-                                    3.5 - dist
-                                } else {
-                                    0.0
-                                };
+                            let tcx = tx as f64 + 0.5;
+                            let tcy = ty as f64 + 0.5;
+                            let tcz = tz as f64 + 0.5;
+
+                            // Canonical Minecraft 1.7.10 getClosestPlayer(x, y, z, 3.0D)
+                            let mut closest_d0: f64 = 0.0;
+                            let mut closest_d1: f64 = 0.0;
+                            let mut min_dist_sq = 3.0 * 3.0; // 3.0 blocks range
+                            let mut found_player = false;
+
+                            for &(px, py, pz) in &all_players {
+                                let d0 = px - tcx;
+                                let dy = py - tcy;
+                                let d1 = pz - tcz;
+                                let dist_sq = d0 * d0 + dy * dy + d1 * d1;
+                                if dist_sq < min_dist_sq {
+                                    min_dist_sq = dist_sq;
+                                    closest_d0 = d0;
+                                    closest_d1 = d1;
+                                    found_player = true;
+                                }
+                            }
+
+                            let seed = ((tx as u64) << 32) ^ ((tz as u64) << 16) ^ (ty as u64);
+                            let entry = self.enchanting_books.entry((tx, ty, tz)).or_insert_with(|| {
+                                EnchantingTableAnimation::new(0.0, seed)
+                            });
+
+                            let player_near = found_player;
+                            let player_target_yaw = if found_player {
+                                (closest_d1 as f32).atan2(closest_d0 as f32)
+                            } else {
+                                0.0
+                            };
+
+                            entry.tick_accum += dt;
+                            let mut ticks = 0;
+                            while entry.tick_accum >= 0.05 && ticks < 5 {
+                                entry.tick(player_near, player_target_yaw);
+                                entry.tick_accum -= 0.05;
+                                ticks += 1;
+                            }
+                            if entry.tick_accum >= 0.05 {
+                                entry.tick_accum = 0.0;
+                            }
+
+                            let alpha = (entry.tick_accum / 0.05).clamp(0.0, 1.0);
+                            let mut yaw_diff = entry.yaw - entry.yaw_prev;
+                            while yaw_diff >= std::f32::consts::PI { yaw_diff -= std::f32::consts::TAU; }
+                            while yaw_diff < -std::f32::consts::PI { yaw_diff += std::f32::consts::TAU; }
+                            let interp_rotation = entry.yaw_prev + yaw_diff * alpha;
+                            let render_yaw = -interp_rotation;
+
+                            let render_spread = (entry.book_spread_prev + (entry.book_spread - entry.book_spread_prev) * alpha).clamp(0.0, 1.0);
+
+                            let interp_flip = entry.page_flip_prev + (entry.page_flip - entry.page_flip_prev) * alpha;
+                            let f7 = (interp_flip + 0.25).rem_euclid(1.0) * 1.6 - 0.3;
+                            let f8 = (interp_flip + 0.75).rem_euclid(1.0) * 1.6 - 0.3;
+                            let flip_right = f7.clamp(0.0, 1.0);
+                            let flip_left = f8.clamp(0.0, 1.0);
+
+                            let cam_dx = (p_x - tcx) as f32;
+                            let cam_dz = (p_z - tcz) as f32;
+                            let cam_dist = (cam_dx * cam_dx + cam_dz * cam_dz).sqrt();
+
+                            if cam_dist < 48.0 {
                                 mesh::build_enchanting_book_model(
                                     &mut book_mesh,
                                     ftx,
                                     fty,
                                     ftz,
-                                    book_yaw,
-                                    open_factor,
+                                    render_yaw,
+                                    render_spread,
+                                    flip_right,
+                                    flip_left,
+                                    light,
                                 );
                             }
                         }
@@ -856,8 +1041,8 @@ impl ApplicationHandler for App {
                                                 Block {
                                                     id: block_id,
                                                     meta,
-                                                    block_light: existing.block_light,
-                                                    sky_light: existing.sky_light,
+                                                    block_light: block_emission(block_id),
+                                                    sky_light: if is_opaque_cube(block_id) { 0 } else { existing.sky_light },
                                                 },
                                             );
                                             let cx = px.div_euclid(16);
@@ -998,11 +1183,26 @@ fn main() -> std::io::Result<()> {
         fps_frame_count: 0,
         current_fps: 0,
         pending_skins,
+        enchanting_books: HashMap::new(),
+        last_book_update: Instant::now(),
     };
 
     let _ = event_loop.run_app(&mut app);
 
     Ok(())
+}
+
+pub fn strip_minecraft_formatting(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '§' {
+            let _ = chars.next();
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 async fn run_network_client(
@@ -1320,6 +1520,8 @@ async fn run_network_client(
                 let level_type = protocol::read_string_slice(&payload, &mut offset).unwrap_or_default();
                 println!("[RESPAWN] Respawned. Dimension: {}, Diff: {}, Mode: {}, Type: {}", dimension, difficulty, gamemode, level_type);
 
+                world.lock().unwrap().clear();
+
                 let mut p = player.lock().unwrap();
                 p.is_dead = false;
                 p.health = 20.0;
@@ -1433,21 +1635,24 @@ async fn run_network_client(
                                     let yaw = (yaw_byte as f32) * 360.0 / 256.0;
                                     let pitch = (pitch_byte as f32) * 360.0 / 256.0;
 
-                                    println!("[SPAWN PLAYER] ID: {}, Name: {}, Pos: ({:.2}, {:.2}, {:.2})", eid, name, x, y, z);
-                                    skin::fetch_skin_async(name.clone(), skin_url, name.clone(), pending_skins.clone());
-                                    let mut ents = entities.lock().unwrap();
-                                    ents.insert(
-                                        eid,
-                                        RemotePlayer {
-                                            entity_id: eid,
-                                            name,
-                                            x,
-                                            y,
-                                            z,
-                                            yaw,
-                                            pitch,
-                                        },
-                                    );
+                                    let clean_name = strip_minecraft_formatting(&name).trim().to_string();
+                                    if !clean_name.is_empty() && clean_name != username {
+                                        println!("[SPAWN PLAYER] ID: {}, Name: {}, Pos: ({:.2}, {:.2}, {:.2})", eid, clean_name, x, y, z);
+                                        skin::fetch_skin_async(clean_name.clone(), skin_url, clean_name.clone(), pending_skins.clone());
+                                        let mut ents = entities.lock().unwrap();
+                                        ents.insert(
+                                            eid,
+                                            RemotePlayer {
+                                                entity_id: eid,
+                                                name: clean_name,
+                                                x,
+                                                y,
+                                                z,
+                                                yaw,
+                                                pitch,
+                                            },
+                                        );
+                                    }
                                 }
                             }
                         }
@@ -1647,8 +1852,8 @@ async fn run_network_client(
                                 Block {
                                     id: block_id,
                                     meta: block_meta,
-                                    block_light: existing.block_light,
-                                    sky_light: existing.sky_light,
+                                    block_light: block_emission(block_id),
+                                    sky_light: if is_opaque_cube(block_id) { 0 } else { existing.sky_light },
                                 },
                             );
                         }
@@ -1679,8 +1884,8 @@ async fn run_network_client(
                         Block {
                             id: block_id,
                             meta: block_meta,
-                            block_light: existing.block_light,
-                            sky_light: existing.sky_light,
+                            block_light: block_emission(block_id),
+                            sky_light: if is_opaque_cube(block_id) { 0 } else { existing.sky_light },
                         },
                     );
                 }
@@ -1792,6 +1997,18 @@ async fn run_network_client(
                                 p.hotbar[(slot_idx - 36) as usize] = item;
                             }
                         }
+                    }
+                }
+            }
+            0x38 => {
+                let mut payload = vec![0u8; payload_len];
+                read_half.read_exact(&mut payload).await?;
+                let mut offset = 0;
+                if let Ok(raw_name) = protocol::read_string_slice(&payload, &mut offset) {
+                    let clean_name = strip_minecraft_formatting(&raw_name).trim().to_string();
+                    let online = protocol::read_u8_slice(&payload, &mut offset).unwrap_or(0) != 0;
+                    if online && !clean_name.is_empty() && clean_name != username {
+                        skin::fetch_skin_async(clean_name.clone(), None, clean_name, pending_skins.clone());
                     }
                 }
             }

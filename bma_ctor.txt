@@ -1,0 +1,201 @@
+>   public bma(bao);
+      Code:
+         0: aload_0
+         1: invokespecial #637                // Method java/lang/Object."<init>":()V
+         4: aload_0
+         5: new           #235                // class java/util/ArrayList
+         8: dup
+         9: invokespecial #649                // Method java/util/ArrayList."<init>":()V
+        12: putfield      #401                // Field a:Ljava/util/List;
+        15: aload_0
+        16: new           #235                // class java/util/ArrayList
+        19: dup
+        20: invokespecial #649                // Method java/util/ArrayList."<init>":()V
+        23: putfield      #427                // Field t:Ljava/util/List;
+        26: aload_0
+        27: new           #239                // class java/util/HashMap
+        30: dup
+        31: invokespecial #655                // Method java/util/HashMap."<init>":()V
+        34: putfield      #389                // Field O:Ljava/util/Map;
+        37: aload_0
+        38: invokestatic  #628                // Method com/google/common/collect/Maps.newHashMap:()Ljava/util/HashMap;
+        41: putfield      #390                // Field P:Ljava/util/Map;
+        44: aload_0
+        45: iconst_m1
+        46: putfield      #394                // Field T:I
+        49: aload_0
+        50: iconst_2
+        51: putfield      #395                // Field U:I
+        54: aload_0
+        55: bipush        64
+        57: invokestatic  #499                // Method ban.f:(I)Ljava/nio/IntBuffer;
+        60: putfield      #409                // Field b:Ljava/nio/IntBuffer;
+        63: aload_0
+        64: new           #235                // class java/util/ArrayList
+        67: dup
+        68: invokespecial #649                // Method java/util/ArrayList."<init>":()V
+        71: putfield      #407                // Field af:Ljava/util/List;
+        74: aload_0
+        75: iconst_4
+        76: anewarray     #214                // class bmd
+        79: dup
+        80: iconst_0
+        81: new           #214                // class bmd
+        84: dup
+        85: invokespecial #596                // Method bmd."<init>":()V
+        88: aastore
+        89: dup
+        90: iconst_1
+        91: new           #214                // class bmd
+        94: dup
+        95: invokespecial #596                // Method bmd."<init>":()V
+        98: aastore
+        99: dup
+       100: iconst_2
+       101: new           #214                // class bmd
+       104: dup
+       105: invokespecial #596                // Method bmd."<init>":()V
+       108: aastore
+       109: dup
+       110: iconst_3
+       111: new           #214                // class bmd
+       114: dup
+       115: invokespecial #596                // Method bmd."<init>":()V
+       118: aastore
+       119: putfield      #408                // Field ag:[Lbmd;
+       122: aload_0
+       123: ldc2_w        #261                // double -9999.0d
+       126: putfield      #410                // Field c:D
+       129: aload_0
+       130: ldc2_w        #261                // double -9999.0d
+       133: putfield      #411                // Field d:D
+       136: aload_0
+       137: ldc2_w        #261                // double -9999.0d
+       140: putfield      #412                // Field e:D
+       143: aload_0
+       144: ldc2_w        #261                // double -9999.0d
+       147: putfield      #413                // Field f:D
+       150: aload_0
+       151: ldc2_w        #261                // double -9999.0d
+       154: putfield      #414                // Field g:D
+       157: aload_0
+       158: ldc2_w        #261                // double -9999.0d
+       161: putfield      #415                // Field h:D
+       164: aload_0
+       165: sipush        -999
+       168: putfield      #416                // Field i:I
+       171: aload_0
+       172: sipush        -999
+       175: putfield      #417                // Field j:I
+       178: aload_0
+       179: sipush        -999
+       182: putfield      #418                // Field k:I
+       185: aload_0
+       186: aload_1
+       187: putfield      #375                // Field A:Lbao;
+       190: aload_0
+       191: aload_1
+       192: invokevirtual #500                // Method bao.P:()Lbqf;
+       195: putfield      #426                // Field s:Lbqf;
+       198: bipush        34
+       200: istore_2
+       201: bipush        16
+       203: istore_3
+       204: aload_0
+       205: iload_2
+       206: iload_2
+       207: imul
+       208: iload_3
+       209: imul
+       210: iconst_3
+       211: imul
+       212: invokestatic  #497                // Method ban.a:(I)I
+       215: putfield      #433                // Field z:I
+       218: aload_0
+       219: iconst_0
+       220: putfield      #392                // Field R:Z
+       223: aload_0
+       224: iconst_1
+       225: invokestatic  #497                // Method ban.a:(I)I
+       228: putfield      #393                // Field S:I
+       231: aload_0
+       232: invokestatic  #502                // Method bbh.a:()Z
+       235: putfield      #378                // Field D:Z
+       238: aload_0
+       239: getfield      #378                // Field D:Z
+       242: ifeq          302
+       245: aload_0
+       246: getfield      #409                // Field b:Ljava/nio/IntBuffer;
+       249: invokevirtual #645                // Method java/nio/IntBuffer.clear:()Ljava/nio/Buffer;
+       252: pop
+       253: aload_0
+       254: iload_2
+       255: iload_2
+       256: imul
+       257: iload_3
+       258: imul
+       259: invokestatic  #499                // Method ban.f:(I)Ljava/nio/IntBuffer;
+       262: putfield      #377                // Field C:Ljava/nio/IntBuffer;
+       265: aload_0
+       266: getfield      #377                // Field C:Ljava/nio/IntBuffer;
+       269: invokevirtual #645                // Method java/nio/IntBuffer.clear:()Ljava/nio/Buffer;
+       272: pop
+       273: aload_0
+       274: getfield      #377                // Field C:Ljava/nio/IntBuffer;
+       277: iconst_0
+       278: invokevirtual #648                // Method java/nio/IntBuffer.position:(I)Ljava/nio/Buffer;
+       281: pop
+       282: aload_0
+       283: getfield      #377                // Field C:Ljava/nio/IntBuffer;
+       286: iload_2
+       287: iload_2
+       288: imul
+       289: iload_3
+       290: imul
+       291: invokevirtual #647                // Method java/nio/IntBuffer.limit:(I)Ljava/nio/Buffer;
+       294: pop
+       295: aload_0
+       296: getfield      #377                // Field C:Ljava/nio/IntBuffer;
+       299: invokestatic  #674                // Method org/lwjgl/opengl/ARBOcclusionQuery.glGenQueriesARB:(Ljava/nio/IntBuffer;)V
+       302: aload_0
+       303: iconst_3
+       304: invokestatic  #497                // Method ban.a:(I)I
+       307: putfield      #380                // Field F:I
+       310: invokestatic  #690                // Method org/lwjgl/opengl/GL11.glPushMatrix:()V
+       313: aload_0
+       314: getfield      #380                // Field F:I
+       317: sipush        4864
+       320: invokestatic  #687                // Method org/lwjgl/opengl/GL11.glNewList:(II)V
+       323: aload_0
+       324: invokespecial #594                // Method i:()V
+       327: invokestatic  #684                // Method org/lwjgl/opengl/GL11.glEndList:()V
+       330: invokestatic  #689                // Method org/lwjgl/opengl/GL11.glPopMatrix:()V
+       333: getstatic     #434                // Field bmh.a:Lbmh;
+       336: astore        4
+       338: aload_0
+       339: aload_0
+       340: getfield      #380                // Field F:I
+       343: iconst_1
+       344: iadd
+       345: putfield      #381                // Field G:I
+       348: aload_0
+       349: getfield      #381                // Field G:I
+       352: sipush        4864
+       355: invokestatic  #687                // Method org/lwjgl/opengl/GL11.glNewList:(II)V
+       358: bipush        64
+       360: istore        6
+       362: sipush        256
+       365: iload         6
+       367: idiv
+       368: iconst_2
+       369: iadd
+       370: istore        7
+       372: ldc           #43                 // float 16.0f
+       374: fstore        5
+       376: iload         6
+       378: ineg
+       379: iload         7
+       381: imul
+       382: istore        8
+       384: iload         8
+       386: iload         6

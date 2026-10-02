@@ -330,7 +330,7 @@ impl SkyRenderer {
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
+                    write_mask: wgpu::ColorWrites::COLOR,
                 })],
                 compilation_options: Default::default(),
             }),
@@ -381,7 +381,7 @@ impl SkyRenderer {
                             operation: wgpu::BlendOperation::Add,
                         },
                     }),
-                    write_mask: wgpu::ColorWrites::ALL,
+                    write_mask: wgpu::ColorWrites::COLOR,
                 })],
                 compilation_options: Default::default(),
             }),
@@ -420,8 +420,19 @@ impl SkyRenderer {
                 entry_point: Some("fs_sun"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::SrcAlpha,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                        alpha: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::Zero,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                    }),
+                    write_mask: wgpu::ColorWrites::COLOR,
                 })],
                 compilation_options: Default::default(),
             }),
@@ -462,7 +473,7 @@ impl SkyRenderer {
                     format: config.format,
                     blend: Some(wgpu::BlendState {
                         color: wgpu::BlendComponent {
-                            src_factor: wgpu::BlendFactor::One,
+                            src_factor: wgpu::BlendFactor::SrcAlpha,
                             dst_factor: wgpu::BlendFactor::One,
                             operation: wgpu::BlendOperation::Add,
                         },
@@ -472,7 +483,7 @@ impl SkyRenderer {
                             operation: wgpu::BlendOperation::Add,
                         },
                     }),
-                    write_mask: wgpu::ColorWrites::ALL,
+                    write_mask: wgpu::ColorWrites::COLOR,
                 })],
                 compilation_options: Default::default(),
             }),
@@ -512,7 +523,7 @@ impl SkyRenderer {
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
+                    write_mask: wgpu::ColorWrites::COLOR,
                 })],
                 compilation_options: Default::default(),
             }),
@@ -545,13 +556,13 @@ impl SkyRenderer {
 
         let dome_vb = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Dome VB"),
-            size: 256 * std::mem::size_of::<SkyVertex>() as u64,
+            size: 2048 * std::mem::size_of::<SkyVertex>() as u64,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         let dome_ib = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Dome IB"),
-            size: 1024 * std::mem::size_of::<u32>() as u64,
+            size: 4096 * std::mem::size_of::<u32>() as u64,
             usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });

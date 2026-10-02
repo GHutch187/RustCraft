@@ -99,17 +99,70 @@ pub fn get_star_brightness(celestial_angle: f32) -> f32 {
     f2 * f2 * 0.5
 }
 
+pub fn hsb_to_rgb(hue: f32, saturation: f32, brightness: f32) -> [f32; 3] {
+    if saturation <= 0.0 {
+        return [brightness, brightness, brightness];
+    }
+    let h = (hue - hue.floor()) * 6.0;
+    let f = h - h.floor();
+    let p = brightness * (1.0 - saturation);
+    let q = brightness * (1.0 - saturation * f);
+    let t = brightness * (1.0 - saturation * (1.0 - f));
+    match (h as i32) % 6 {
+        0 => [brightness, t, p],
+        1 => [q, brightness, p],
+        2 => [p, brightness, t],
+        3 => [p, q, brightness],
+        4 => [t, p, brightness],
+        _ => [brightness, p, q],
+    }
+}
+
+pub fn get_sky_color_by_temp(temp: f32) -> [f32; 3] {
+    let t = (temp / 3.0).clamp(-1.0, 1.0);
+    let hue = 0.62222224 - t * 0.05;
+    let sat = 0.5 + t * 0.1;
+    let bri = 1.0;
+    hsb_to_rgb(hue, sat, bri)
+}
+
+pub fn get_minecraft_sky_color(celestial_angle: f32, temp: f32) -> [f32; 3] {
+    let f1 = ((celestial_angle * std::f32::consts::PI * 2.0).cos() * 2.0 + 0.5).clamp(0.0, 1.0);
+    let base = get_sky_color_by_temp(temp);
+    [base[0] * f1, base[1] * f1, base[2] * f1]
+}
+
+pub fn get_world_provider_fog_color(celestial_angle: f32) -> [f32; 3] {
+    let f1 = ((celestial_angle * std::f32::consts::PI * 2.0).cos() * 2.0 + 0.5).clamp(0.0, 1.0);
+    let mut r = 0.7529412f32;
+    let mut g = 0.84705883f32;
+    let mut b = 1.0f32;
+    r *= f1 * 0.94 + 0.06;
+    g *= f1 * 0.94 + 0.06;
+    b *= f1 * 0.91 + 0.09;
+    [r, g, b]
+}
+
+pub fn update_fog_color(celestial_angle: f32, sky_color: [f32; 3], render_distance_chunks: f32) -> [f32; 3] {
+    let mut f = 0.25 + 0.75 * (render_distance_chunks / 16.0);
+    f = 1.0 - (f as f64).powf(0.25) as f32;
+
+    let base_fog = get_world_provider_fog_color(celestial_angle);
+    let mut fog_r = base_fog[0];
+    let mut fog_g = base_fog[1];
+    let mut fog_b = base_fog[2];
+
+    fog_r += (sky_color[0] - fog_r) * f;
+    fog_g += (sky_color[1] - fog_g) * f;
+    fog_b += (sky_color[2] - fog_b) * f;
+
+    [fog_r, fog_g, fog_b]
+}
+
 pub fn calculate_sky_and_light(time_of_day: i64) -> ([f32; 4], [f32; 4]) {
-    let (_celestial_angle, raw_sun, sun_brightness) = get_sun_factors(time_of_day);
-
-    // Vanilla 1.7.10 sky colors:
-    let day_sky = [0.541f32, 0.706f32, 0.961f32];
-    let night_sky = [0.0314f32, 0.0392f32, 0.0588f32];
-
-
-    let sky_r = night_sky[0] + (day_sky[0] - night_sky[0]) * raw_sun;
-    let sky_g = night_sky[1] + (day_sky[1] - night_sky[1]) * raw_sun;
-    let sky_b = night_sky[2] + (day_sky[2] - night_sky[2]) * raw_sun;
+    let (celestial_angle, raw_sun, sun_brightness) = get_sun_factors(time_of_day);
+    let sky_rgb = get_minecraft_sky_color(celestial_angle, 0.8);
+    let fog_rgb = update_fog_color(celestial_angle, sky_rgb, 10.0);
 
     // Minimum ambient light level in 1.7.10:
     let min_ambient = 0.12 + 0.08 * raw_sun;
@@ -118,7 +171,7 @@ pub fn calculate_sky_and_light(time_of_day: i64) -> ([f32; 4], [f32; 4]) {
     let fog_end = 160.0;
 
     (
-        [sky_r, sky_g, sky_b, sun_brightness],
+        [fog_rgb[0], fog_rgb[1], fog_rgb[2], sun_brightness],
         [sun_brightness, min_ambient, fog_start, fog_end],
     )
 }

@@ -359,7 +359,7 @@ fn fs(v: VOut) -> @location(0) vec4<f32> {
                 targets: &[Some(wgpu::ColorTargetState {
                     format: surface_format,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
+                    write_mask: wgpu::ColorWrites::COLOR,
                 })],
                 compilation_options: Default::default(),
             }),

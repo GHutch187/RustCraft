@@ -68,13 +68,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let dy = abs(eye.y - in.world_pos.y) + 0.001;
     let delta = in.world_pos.xz - eye.xz;
 
-    let scroll = (time % 700.0) / 700.0;
+    let scroll = fract(time / 700.0);
 
     // Layer 0: end_sky.png
     let p0 = in.world_pos.xz + delta * (65.0 / dy);
     let uv0 = (p0 - vec2<f32>(0.5, 0.5)) * 0.125 + vec2<f32>(0.5, 0.5);
     let sky_sample = textureSample(t_sky, s_repeat, uv0);
-    var color = sky_sample.rgb * 0.01;
+    var color = sky_sample.rgb * 0.1;
 
     // Layers 1 to 15 matching Minecraft 1.7.10 PRNG (seed 31100L) and additive blending
     color += sample_portal_layer(in.world_pos.xz, delta, dy, scroll, 15.0, 0.5000, 8660.0 * 0.0174532925, vec3<f32>(0.0063, 0.0510, 0.0475));
