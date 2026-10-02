@@ -2,7 +2,6 @@ struct CameraUniform {
     view_proj: mat4x4<f32>,
     sky_color: vec4<f32>,       // rgb = sky & fog color, a = sun_brightness
     light_factors: vec4<f32>,   // x = sun_brightness, y = min_ambient, z = fog_start, w = fog_end
-    eye_pos: vec4<f32>,         // xyz = camera eye pos, w = elapsed_time_seconds
 };
 
 @group(0) @binding(0)
@@ -47,26 +46,7 @@ fn vs_main(model: VertexInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    var uv = in.uv;
-    
-    // Portal animation (Slot 220 -> col 12, row 13)
-    let col = floor(uv.x * 16.0);
-    let row = floor(uv.y * 32.0);
-    if (col == 12.0 && row == 13.0) {
-        let time_ticks = camera.eye_pos.w * 20.0;
-        let frame = u32(time_ticks) % 32u;
-        
-        let dest_col = f32((384u + frame) % 16u);
-        let dest_row = f32((384u + frame) / 16u);
-        
-        let local_u = fract(uv.x * 16.0);
-        let local_v = fract(uv.y * 32.0);
-        
-        uv.x = (dest_col + local_u) / 16.0;
-        uv.y = (dest_row + local_v) / 32.0;
-    }
-    
-    let tex_color = textureSample(t_diffuse, s_diffuse, uv);
+    let tex_color = textureSample(t_diffuse, s_diffuse, in.uv);
     if (tex_color.a < 0.1) {
         discard;
     }

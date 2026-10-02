@@ -7,7 +7,6 @@ pub struct CameraUniform {
     pub view_proj: [[f32; 4]; 4],
     pub sky_color: [f32; 4],      // rgb = sky & fog color, a = sun_brightness
     pub light_factors: [f32; 4],  // x = sun_brightness, y = min_ambient, z = fog_start, w = fog_end
-    pub eye_pos: [f32; 4],        // xyz = camera eye pos, w = elapsed_time_seconds
 }
 
 impl CameraUniform {
@@ -16,7 +15,6 @@ impl CameraUniform {
             view_proj: Mat4::IDENTITY.to_cols_array_2d(),
             sky_color: [0.53, 0.81, 0.92, 1.0],
             light_factors: [1.0, 0.15, 100.0, 160.0],
-            eye_pos: [0.0, 0.0, 0.0, 0.0],
         }
     }
 
@@ -27,7 +25,6 @@ impl CameraUniform {
         pitch_deg: f32,
         aspect: f32,
         time_of_day: i64,
-        elapsed_seconds: f32,
     ) {
         let yaw_rad = yaw_deg.to_radians();
         let pitch_rad = pitch_deg.to_radians();
@@ -46,7 +43,6 @@ impl CameraUniform {
         let proj = Mat4::perspective_rh(70.0f32.to_radians(), aspect, 0.1, 1000.0);
 
         self.view_proj = (proj * view).to_cols_array_2d();
-        self.eye_pos = [eye.x, eye.y, eye.z, elapsed_seconds];
 
         let (sky_col, light_facs) = calculate_sky_and_light(time_of_day);
         self.sky_color = sky_col;
@@ -102,10 +98,14 @@ pub fn get_star_brightness(celestial_angle: f32) -> f32 {
 pub fn calculate_sky_and_light(time_of_day: i64) -> ([f32; 4], [f32; 4]) {
     let (_celestial_angle, raw_sun, sun_brightness) = get_sun_factors(time_of_day);
 
-    // Minecraft 1.7.10 fog color curve
-    let fog_r = 0.7529f32 * raw_sun * 0.94 + 0.06;
-    let fog_g = 0.8471f32 * raw_sun * 0.94 + 0.06;
-    let fog_b = 1.0f32 * raw_sun * 0.91 + 0.09;
+    // Vanilla 1.7.10 sky colors:
+    let day_sky = [0.541f32, 0.706f32, 0.961f32];
+    let night_sky = [0.0314f32, 0.0392f32, 0.0588f32];
+
+
+    let sky_r = night_sky[0] + (day_sky[0] - night_sky[0]) * raw_sun;
+    let sky_g = night_sky[1] + (day_sky[1] - night_sky[1]) * raw_sun;
+    let sky_b = night_sky[2] + (day_sky[2] - night_sky[2]) * raw_sun;
 
     // Minimum ambient light level in 1.7.10:
     let min_ambient = 0.12 + 0.08 * raw_sun;
@@ -114,7 +114,7 @@ pub fn calculate_sky_and_light(time_of_day: i64) -> ([f32; 4], [f32; 4]) {
     let fog_end = 160.0;
 
     (
-        [fog_r, fog_g, fog_b, sun_brightness],
+        [sky_r, sky_g, sky_b, sun_brightness],
         [sun_brightness, min_ambient, fog_start, fog_end],
     )
 }
