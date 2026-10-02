@@ -7,6 +7,7 @@ pub struct CameraUniform {
     pub view_proj: [[f32; 4]; 4],
     pub sky_color: [f32; 4],      // rgb = sky & fog color, a = sun_brightness
     pub light_factors: [f32; 4],  // x = sun_brightness, y = min_ambient, z = fog_start, w = fog_end
+    pub eye_pos: [f32; 4],        // xyz = camera eye pos, w = elapsed_time_seconds
 }
 
 impl CameraUniform {
@@ -15,6 +16,7 @@ impl CameraUniform {
             view_proj: Mat4::IDENTITY.to_cols_array_2d(),
             sky_color: [0.53, 0.81, 0.92, 1.0],
             light_factors: [1.0, 0.15, 100.0, 160.0],
+            eye_pos: [0.0, 0.0, 0.0, 0.0],
         }
     }
 
@@ -25,6 +27,7 @@ impl CameraUniform {
         pitch_deg: f32,
         aspect: f32,
         time_of_day: i64,
+        elapsed_seconds: f32,
     ) {
         let yaw_rad = yaw_deg.to_radians();
         let pitch_rad = pitch_deg.to_radians();
@@ -43,6 +46,7 @@ impl CameraUniform {
         let proj = Mat4::perspective_rh(70.0f32.to_radians(), aspect, 0.1, 1000.0);
 
         self.view_proj = (proj * view).to_cols_array_2d();
+        self.eye_pos = [eye.x, eye.y, eye.z, elapsed_seconds];
 
         let (sky_col, light_facs) = calculate_sky_and_light(time_of_day);
         self.sky_color = sky_col;
@@ -153,6 +157,17 @@ mod tests {
 
         let midnight_stars = get_star_brightness(get_celestial_angle(18000));
         assert!((midnight_stars - 0.50).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_camera_uniform_update_view_proj() {
+        let mut uniform = CameraUniform::new();
+        let eye = Vec3::new(10.0, 64.0, 10.0);
+        uniform.update_view_proj(eye, 45.0, -20.0, 16.0 / 9.0, 6000, 12.34);
+        assert_eq!(uniform.eye_pos[0], 10.0);
+        assert_eq!(uniform.eye_pos[1], 64.0);
+        assert_eq!(uniform.eye_pos[2], 10.0);
+        assert_eq!(uniform.eye_pos[3], 12.34);
     }
 }
 

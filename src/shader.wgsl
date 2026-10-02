@@ -2,6 +2,7 @@ struct CameraUniform {
     view_proj: mat4x4<f32>,
     sky_color: vec4<f32>,       // rgb = sky & fog color, a = sun_brightness
     light_factors: vec4<f32>,   // x = sun_brightness, y = min_ambient, z = fog_start, w = fog_end
+    eye_pos: vec4<f32>,         // xyz = camera eye pos, w = elapsed_time_seconds
 };
 
 @group(0) @binding(0)

@@ -63,6 +63,7 @@ pub struct RenderState {
     pub skin_manager: crate::skin::SkinManager,
     pub hud: HudRenderer,
     pub sky: crate::sky::SkyRenderer,
+    pub start_time: std::time::Instant,
     pub anim_timer: std::time::Instant,
     pub anim_frame: usize,
     pub current_sky_color: [f32; 4],
@@ -505,6 +506,7 @@ fn fs_main() -> @location(0) vec4<f32> {
             skin_manager,
             hud,
             sky,
+            start_time: std::time::Instant::now(),
             anim_timer: std::time::Instant::now(),
             anim_frame: 0,
             current_sky_color: [0.53, 0.81, 0.92, 1.0],
@@ -689,7 +691,8 @@ fn fs_main() -> @location(0) vec4<f32> {
 
     pub fn update_camera(&mut self, eye: glam::Vec3, yaw: f32, pitch: f32, time_of_day: i64) {
         let aspect = self.config.width as f32 / self.config.height as f32;
-        self.camera_uniform.update_view_proj(eye, yaw, pitch, aspect, time_of_day);
+        let elapsed_seconds = self.start_time.elapsed().as_secs_f32();
+        self.camera_uniform.update_view_proj(eye, yaw, pitch, aspect, time_of_day, elapsed_seconds);
         self.current_sky_color = self.camera_uniform.sky_color;
 
         self.queue.write_buffer(

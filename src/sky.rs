@@ -873,28 +873,39 @@ impl SkyRenderer {
         }
 
 
-        // 4. Build Sunset Fan
+        // 4. Build Sunset / Sunrise Horizon Fan (Minecraft 1.7.10 canonical horizon fan)
         if let Some(sc) = crate::camera::calc_sunrise_sunset_colors(celestial_angle) {
-            let center = sun_center_world;
+            let r_y = glam::Mat4::from_rotation_y(-90.0f32.to_radians());
+            let r_x = glam::Mat4::from_rotation_x(90.0f32.to_radians());
+            let is_sunset = (celestial_angle * std::f32::consts::PI * 2.0).sin() < 0.0;
+            let r_z1 = glam::Mat4::from_rotation_z(if is_sunset { 180.0f32.to_radians() } else { 0.0 });
+            let r_z2 = glam::Mat4::from_rotation_z(90.0f32.to_radians());
+            let mat = r_y * r_x * r_z1 * r_z2;
+
             let mut sf_verts = Vec::with_capacity(17);
             let mut sf_indices = Vec::with_capacity(48);
 
+            let local_center = glam::Vec3::new(0.0, 100.0, 0.0);
+            let center_world = eye + mat.transform_point3(local_center);
+
             sf_verts.push(SkyVertex {
-                position: center.to_array(),
+                position: center_world.to_array(),
                 uv: [0.0, 0.0],
                 color: sc,
             });
 
-            let radius = 35.0f32;
             let outer_col = [sc[0], sc[1], sc[2], 0.0];
-            let v_z = Vec3::new(0.0, 0.0, 1.0);
-            let v_t = sun_dir.cross(v_z).normalize();
 
             for i in 0..16 {
                 let theta = (i as f32 / 16.0) * std::f32::consts::PI * 2.0;
-                let offset = v_t * (theta.cos() * radius) + v_z * (theta.sin() * radius);
+                let local_pos = glam::Vec3::new(
+                    theta.sin() * 120.0,
+                    theta.cos() * 120.0,
+                    -theta.cos() * 40.0 * sc[3],
+                );
+                let world_pos = eye + mat.transform_point3(local_pos);
                 sf_verts.push(SkyVertex {
-                    position: (center + offset).to_array(),
+                    position: world_pos.to_array(),
                     uv: [0.0, 0.0],
                     color: outer_col,
                 });
@@ -981,12 +992,18 @@ impl SkyRenderer {
         let y0 = 128.0f32;
         let y1 = 132.0f32;
 
-        let base_cloud_col = [
-            0.098f32 + (1.0f32 - 0.098f32) * raw_sun,
-            0.098f32 + (1.0f32 - 0.098f32) * raw_sun,
-            0.133f32 + (1.0f32 - 0.133f32) * raw_sun,
-            0.80f32,
-        ];
+        let mut cloud_r = 0.098f32 + (1.0f32 - 0.098f32) * raw_sun;
+        let mut cloud_g = 0.098f32 + (1.0f32 - 0.098f32) * raw_sun;
+        let mut cloud_b = 0.133f32 + (1.0f32 - 0.133f32) * raw_sun;
+
+        if let Some(sc) = crate::camera::calc_sunrise_sunset_colors(celestial_angle) {
+            let sunset_weight = sc[3] * 0.6;
+            cloud_r = cloud_r * (1.0 - sunset_weight) + sc[0] * sunset_weight;
+            cloud_g = cloud_g * (1.0 - sunset_weight) + sc[1] * sunset_weight;
+            cloud_b = cloud_b * (1.0 - sunset_weight) + sc[2] * sunset_weight;
+        }
+
+        let base_cloud_col = [cloud_r, cloud_g, cloud_b, 0.80f32];
 
         let col_top = [base_cloud_col[0], base_cloud_col[1], base_cloud_col[2], base_cloud_col[3]];
         let col_bottom = [base_cloud_col[0] * 0.7, base_cloud_col[1] * 0.7, base_cloud_col[2] * 0.7, base_cloud_col[3]];
