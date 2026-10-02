@@ -2,6 +2,7 @@ struct CameraUniform {
     view_proj: mat4x4<f32>,
     sky_color: vec4<f32>,
     light_factors: vec4<f32>,
+    eye_pos: vec4<f32>,
 };
 
 @group(0) @binding(0)

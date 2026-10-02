@@ -26,44 +26,568 @@ impl Block {
             0 => "Air",
             1 => "Stone",
             2 => "Grass Block",
-            3 => "Dirt",
+            3 => match self.meta {
+                1 => "Coarse Dirt",
+                2 => "Podzol",
+                _ => "Dirt",
+            },
             4 => "Cobblestone",
-            5 => "Oak Wood Planks",
-            6 => "Sapling",
+            5 => match self.meta {
+                1 => "Spruce Wood Planks",
+                2 => "Birch Wood Planks",
+                3 => "Jungle Wood Planks",
+                4 => "Acacia Wood Planks",
+                5 => "Dark Oak Wood Planks",
+                _ => "Oak Wood Planks",
+            },
+            6 => match self.meta & 7 {
+                1 => "Spruce Sapling",
+                2 => "Birch Sapling",
+                3 => "Jungle Sapling",
+                4 => "Acacia Sapling",
+                5 => "Dark Oak Sapling",
+                _ => "Oak Sapling",
+            },
             7 => "Bedrock",
             8 => "Flowing Water",
             9 => "Still Water",
             10 => "Flowing Lava",
             11 => "Still Lava",
-            12 => "Sand",
+            12 => match self.meta {
+                1 => "Red Sand",
+                _ => "Sand",
+            },
             13 => "Gravel",
             14 => "Gold Ore",
             15 => "Iron Ore",
             16 => "Coal Ore",
-            17 => "Wood Log",
-            18 => "Leaves",
+            17 => match self.meta & 3 {
+                1 => "Spruce Wood",
+                2 => "Birch Wood",
+                3 => "Jungle Wood",
+                _ => "Oak Wood",
+            },
+            18 => match self.meta & 3 {
+                1 => "Spruce Leaves",
+                2 => "Birch Leaves",
+                3 => "Jungle Leaves",
+                _ => "Oak Leaves",
+            },
             19 => "Sponge",
             20 => "Glass",
             21 => "Lapis Lazuli Ore",
             22 => "Lapis Lazuli Block",
-            24 => "Sandstone",
-            31 => "Tall Grass",
-            35 => "Wool",
+            23 => "Dispenser",
+            24 => match self.meta {
+                1 => "Chiseled Sandstone",
+                2 => "Smooth Sandstone",
+                _ => "Sandstone",
+            },
+            25 => "Note Block",
+            26 => "Bed",
+            27 => "Powered Rail",
+            28 => "Detector Rail",
+            29 => "Sticky Piston",
+            30 => "Cobweb",
+            31 => match self.meta {
+                0 => "Dead Shrub",
+                2 => "Fern",
+                _ => "Tall Grass",
+            },
+            32 => "Dead Bush",
+            33 => "Piston",
+            34 => "Piston Head",
+            35 => match self.meta & 15 {
+                1 => "Orange Wool",
+                2 => "Magenta Wool",
+                3 => "Light Blue Wool",
+                4 => "Yellow Wool",
+                5 => "Lime Wool",
+                6 => "Pink Wool",
+                7 => "Gray Wool",
+                8 => "Light Gray Wool",
+                9 => "Cyan Wool",
+                10 => "Purple Wool",
+                11 => "Blue Wool",
+                12 => "Brown Wool",
+                13 => "Green Wool",
+                14 => "Red Wool",
+                15 => "Black Wool",
+                _ => "White Wool",
+            },
+            36 => "Moving Piston",
             37 => "Dandelion",
-            38 => "Poppy",
+            38 => match self.meta & 15 {
+                1 => "Blue Orchid",
+                2 => "Allium",
+                3 => "Azure Bluet",
+                4 => "Red Tulip",
+                5 => "Orange Tulip",
+                6 => "White Tulip",
+                7 => "Pink Tulip",
+                8 => "Oxeye Daisy",
+                _ => "Poppy",
+            },
+            39 => "Brown Mushroom",
+            40 => "Red Mushroom",
+            41 => "Gold Block",
+            42 => "Iron Block",
+            43 => "Double Stone Slab",
+            44 => match self.meta & 7 {
+                1 => "Sandstone Slab",
+                2 => "Wooden Slab",
+                3 => "Cobblestone Slab",
+                4 => "Bricks Slab",
+                5 => "Stone Brick Slab",
+                6 => "Nether Brick Slab",
+                7 => "Quartz Slab",
+                _ => "Stone Slab",
+            },
+            45 => "Bricks",
+            46 => "TNT",
+            47 => "Bookshelf",
+            48 => "Mossy Cobblestone",
             49 => "Obsidian",
             50 => "Torch",
+            51 => "Fire",
+            52 => "Monster Spawner",
+            53 => "Oak Wood Stairs",
+            54 => "Chest",
+            55 => "Redstone Wire",
             56 => "Diamond Ore",
+            57 => "Diamond Block",
+            58 => "Crafting Table",
+            59 => "Wheat Crops",
+            60 => "Farmland",
+            61 => "Furnace",
+            62 => "Burning Furnace",
+            63 => "Standing Sign",
+            64 => "Wooden Door",
+            65 => "Ladder",
+            66 => "Rail",
+            67 => "Cobblestone Stairs",
+            68 => "Wall Sign",
+            69 => "Lever",
+            70 => "Stone Pressure Plate",
+            71 => "Iron Door",
+            72 => "Wooden Pressure Plate",
             73 => "Redstone Ore",
+            74 => "Glowing Redstone Ore",
+            75 => "Redstone Torch (off)",
+            76 => "Redstone Torch (on)",
+            77 => "Stone Button",
             78 => "Snow Layer",
             79 => "Ice",
             80 => "Snow Block",
             81 => "Cactus",
             82 => "Clay",
+            83 => "Sugar Canes",
+            84 => "Jukebox",
+            85 => "Fence",
             86 => "Pumpkin",
+            87 => "Netherrack",
+            88 => "Soul Sand",
+            89 => "Glowstone",
+            90 => "Nether Portal",
+            91 => "Jack o'Lantern",
+            92 => "Cake",
+            93 => "Redstone Repeater (off)",
+            94 => "Redstone Repeater (on)",
+            95 => match self.meta & 15 {
+                1 => "Orange Stained Glass",
+                2 => "Magenta Stained Glass",
+                3 => "Light Blue Stained Glass",
+                4 => "Yellow Stained Glass",
+                5 => "Lime Stained Glass",
+                6 => "Pink Stained Glass",
+                7 => "Gray Stained Glass",
+                8 => "Light Gray Stained Glass",
+                9 => "Cyan Stained Glass",
+                10 => "Purple Stained Glass",
+                11 => "Blue Stained Glass",
+                12 => "Brown Stained Glass",
+                13 => "Green Stained Glass",
+                14 => "Red Stained Glass",
+                15 => "Black Stained Glass",
+                _ => "White Stained Glass",
+            },
+            96 => "Wooden Trapdoor",
+            97 => "Monster Egg",
+            98 => match self.meta {
+                1 => "Mossy Stone Bricks",
+                2 => "Cracked Stone Bricks",
+                3 => "Chiseled Stone Bricks",
+                _ => "Stone Bricks",
+            },
+            99 => "Huge Brown Mushroom",
+            100 => "Huge Red Mushroom",
+            101 => "Iron Bars",
+            102 => "Glass Pane",
+            103 => "Melon Block",
+            104 => "Pumpkin Stem",
+            105 => "Melon Stem",
+            106 => "Vines",
+            107 => "Fence Gate",
+            108 => "Brick Stairs",
+            109 => "Stone Brick Stairs",
+            110 => "Mycelium",
             111 => "Lily Pad",
+            112 => "Nether Brick",
+            113 => "Nether Brick Fence",
+            114 => "Nether Brick Stairs",
+            115 => "Nether Wart",
+            116 => "Enchantment Table",
+            117 => "Brewing Stand",
+            118 => "Cauldron",
+            119 => "End Portal",
+            120 => "End Portal Frame",
+            121 => "End Stone",
+            122 => "Dragon Egg",
+            123 => "Redstone Lamp (off)",
+            124 => "Redstone Lamp (on)",
+            125 => "Double Wooden Slab",
+            126 => match self.meta & 7 {
+                1 => "Spruce Wood Slab",
+                2 => "Birch Wood Slab",
+                3 => "Jungle Wood Slab",
+                4 => "Acacia Wood Slab",
+                5 => "Dark Oak Wood Slab",
+                _ => "Oak Wood Slab",
+            },
+            127 => "Cocoa Plant",
+            128 => "Sandstone Stairs",
+            129 => "Emerald Ore",
+            130 => "Ender Chest",
+            131 => "Tripwire Hook",
+            132 => "Tripwire",
+            133 => "Emerald Block",
+            134 => "Spruce Wood Stairs",
+            135 => "Birch Wood Stairs",
+            136 => "Jungle Wood Stairs",
+            137 => "Command Block",
+            138 => "Beacon",
+            139 => "Cobblestone Wall",
+            140 => "Flower Pot",
+            141 => "Carrot Crop",
+            142 => "Potato Crop",
+            143 => "Wooden Button",
+            144 => "Mob Head",
+            145 => "Anvil",
+            146 => "Trapped Chest",
+            147 => "Weighted Pressure Plate (light)",
+            148 => "Weighted Pressure Plate (heavy)",
+            149 => "Redstone Comparator (off)",
+            150 => "Redstone Comparator (on)",
+            151 => "Daylight Sensor",
+            152 => "Redstone Block",
+            153 => "Nether Quartz Ore",
+            154 => "Hopper",
+            155 => match self.meta {
+                1 => "Chiseled Quartz Block",
+                2 => "Pillar Quartz Block",
+                _ => "Quartz Block",
+            },
+            156 => "Quartz Stairs",
+            157 => "Activator Rail",
+            158 => "Dropper",
+            159 => match self.meta & 15 {
+                1 => "Orange Stained Clay",
+                2 => "Magenta Stained Clay",
+                3 => "Light Blue Stained Clay",
+                4 => "Yellow Stained Clay",
+                5 => "Lime Stained Clay",
+                6 => "Pink Stained Clay",
+                7 => "Gray Stained Clay",
+                8 => "Light Gray Stained Clay",
+                9 => "Cyan Stained Clay",
+                10 => "Purple Stained Clay",
+                11 => "Blue Stained Clay",
+                12 => "Brown Stained Clay",
+                13 => "Green Stained Clay",
+                14 => "Red Stained Clay",
+                15 => "Black Stained Clay",
+                _ => "White Stained Clay",
+            },
+            160 => match self.meta & 15 {
+                1 => "Orange Stained Glass Pane",
+                2 => "Magenta Stained Glass Pane",
+                3 => "Light Blue Stained Glass Pane",
+                4 => "Yellow Stained Glass Pane",
+                5 => "Lime Stained Glass Pane",
+                6 => "Pink Stained Glass Pane",
+                7 => "Gray Stained Glass Pane",
+                8 => "Light Gray Stained Glass Pane",
+                9 => "Cyan Stained Glass Pane",
+                10 => "Purple Stained Glass Pane",
+                11 => "Blue Stained Glass Pane",
+                12 => "Brown Stained Glass Pane",
+                13 => "Green Stained Glass Pane",
+                14 => "Red Stained Glass Pane",
+                15 => "Black Stained Glass Pane",
+                _ => "White Stained Glass Pane",
+            },
+            161 => match self.meta & 1 {
+                1 => "Dark Oak Leaves",
+                _ => "Acacia Leaves",
+            },
+            162 => match self.meta & 1 {
+                1 => "Dark Oak Wood",
+                _ => "Acacia Wood",
+            },
+            163 => "Acacia Wood Stairs",
+            164 => "Dark Oak Wood Stairs",
+            165 => "Slime Block",
+            166 => "Barrier",
+            167 => "Iron Trapdoor",
+            170 => "Hay Bale",
+            171 => match self.meta & 15 {
+                1 => "Orange Carpet",
+                2 => "Magenta Carpet",
+                3 => "Light Blue Carpet",
+                4 => "Yellow Carpet",
+                5 => "Lime Carpet",
+                6 => "Pink Carpet",
+                7 => "Gray Carpet",
+                8 => "Light Gray Carpet",
+                9 => "Cyan Carpet",
+                10 => "Purple Carpet",
+                11 => "Blue Carpet",
+                12 => "Brown Carpet",
+                13 => "Green Carpet",
+                14 => "Red Carpet",
+                15 => "Black Carpet",
+                _ => "White Carpet",
+            },
+            172 => "Hardened Clay",
+            173 => "Block of Coal",
+            174 => "Packed Ice",
+            175 => match self.meta & 7 {
+                1 => "Lilac",
+                2 => "Double Tallgrass",
+                3 => "Large Fern",
+                4 => "Rose Bush",
+                5 => "Peony",
+                _ => "Sunflower",
+            },
             _ => "Block",
         }
+    }
+}
+
+pub fn get_item_name(id: i16) -> &'static str {
+    if id > 0 && id <= 255 {
+        return Block {
+            id: id as u16,
+            meta: 0,
+            block_light: 0,
+            sky_light: 0,
+        }
+        .name();
+    }
+    match id {
+        256 => "Iron Shovel",
+        257 => "Iron Pickaxe",
+        258 => "Iron Axe",
+        259 => "Flint and Steel",
+        260 => "Apple",
+        261 => "Bow",
+        262 => "Arrow",
+        263 => "Coal",
+        264 => "Diamond",
+        265 => "Iron Ingot",
+        266 => "Gold Ingot",
+        267 => "Iron Sword",
+        268 => "Wooden Sword",
+        269 => "Wooden Shovel",
+        270 => "Wooden Pickaxe",
+        271 => "Wooden Axe",
+        272 => "Stone Sword",
+        273 => "Stone Shovel",
+        274 => "Stone Pickaxe",
+        275 => "Stone Axe",
+        276 => "Diamond Sword",
+        277 => "Diamond Shovel",
+        278 => "Diamond Pickaxe",
+        279 => "Diamond Axe",
+        280 => "Stick",
+        281 => "Bowl",
+        282 => "Mushroom Stew",
+        283 => "Golden Sword",
+        284 => "Golden Shovel",
+        285 => "Golden Pickaxe",
+        286 => "Golden Axe",
+        287 => "String",
+        288 => "Feather",
+        289 => "Gunpowder",
+        290 => "Wooden Hoe",
+        291 => "Stone Hoe",
+        292 => "Iron Hoe",
+        293 => "Diamond Hoe",
+        294 => "Golden Hoe",
+        295 => "Wheat Seeds",
+        296 => "Wheat",
+        297 => "Bread",
+        298 => "Leather Cap",
+        299 => "Leather Tunic",
+        300 => "Leather Pants",
+        301 => "Leather Boots",
+        302 => "Chainmail Helmet",
+        303 => "Chainmail Chestplate",
+        304 => "Chainmail Leggings",
+        305 => "Chainmail Boots",
+        306 => "Iron Helmet",
+        307 => "Iron Chestplate",
+        308 => "Iron Leggings",
+        309 => "Iron Boots",
+        310 => "Diamond Helmet",
+        311 => "Diamond Chestplate",
+        312 => "Diamond Leggings",
+        313 => "Diamond Boots",
+        314 => "Golden Helmet",
+        315 => "Golden Chestplate",
+        316 => "Golden Leggings",
+        317 => "Golden Boots",
+        318 => "Flint",
+        319 => "Raw Porkchop",
+        320 => "Cooked Porkchop",
+        321 => "Painting",
+        322 => "Golden Apple",
+        323 => "Sign",
+        324 => "Wooden Door",
+        325 => "Bucket",
+        326 => "Water Bucket",
+        327 => "Lava Bucket",
+        328 => "Minecart",
+        329 => "Saddle",
+        330 => "Iron Door",
+        331 => "Redstone",
+        332 => "Snowball",
+        333 => "Boat",
+        334 => "Leather",
+        335 => "Milk Bucket",
+        336 => "Brick",
+        337 => "Clay Ball",
+        338 => "Sugar Canes",
+        339 => "Paper",
+        340 => "Book",
+        341 => "Slimeball",
+        342 => "Minecart with Chest",
+        343 => "Minecart with Furnace",
+        344 => "Egg",
+        345 => "Compass",
+        346 => "Fishing Rod",
+        347 => "Clock",
+        348 => "Glowstone Dust",
+        349 => "Raw Fish",
+        350 => "Cooked Fish",
+        351 => "Dye",
+        352 => "Bone",
+        353 => "Sugar",
+        354 => "Cake",
+        355 => "Bed",
+        356 => "Redstone Repeater",
+        357 => "Cookie",
+        358 => "Map",
+        359 => "Shears",
+        360 => "Melon",
+        361 => "Pumpkin Seeds",
+        362 => "Melon Seeds",
+        363 => "Raw Beef",
+        364 => "Steak",
+        365 => "Raw Chicken",
+        366 => "Cooked Chicken",
+        367 => "Rotten Flesh",
+        368 => "Ender Pearl",
+        369 => "Blaze Rod",
+        370 => "Ghast Tear",
+        371 => "Gold Nugget",
+        372 => "Nether Wart",
+        373 => "Potion",
+        374 => "Glass Bottle",
+        375 => "Spider Eye",
+        376 => "Fermented Spider Eye",
+        377 => "Blaze Powder",
+        378 => "Magma Cream",
+        379 => "Brewing Stand",
+        380 => "Cauldron",
+        381 => "Eye of Ender",
+        382 => "Glistering Melon",
+        383 => "Spawn Egg",
+        384 => "Bottle o' Enchanting",
+        385 => "Fire Charge",
+        386 => "Book and Quill",
+        387 => "Written Book",
+        388 => "Emerald",
+        389 => "Item Frame",
+        390 => "Flower Pot",
+        391 => "Carrot",
+        392 => "Potato",
+        393 => "Baked Potato",
+        394 => "Poisonous Potato",
+        395 => "Empty Map",
+        396 => "Golden Carrot",
+        397 => "Mob Head",
+        398 => "Carrot on a Stick",
+        399 => "Nether Star",
+        400 => "Pumpkin Pie",
+        401 => "Firework Rocket",
+        402 => "Firework Star",
+        403 => "Enchanted Book",
+        404 => "Redstone Comparator",
+        405 => "Nether Brick",
+        406 => "Nether Quartz",
+        407 => "Minecart with TNT",
+        408 => "Minecart with Hopper",
+        417 => "Iron Horse Armor",
+        418 => "Golden Horse Armor",
+        419 => "Diamond Horse Armor",
+        420 => "Lead",
+        421 => "Name Tag",
+        422 => "Minecart with Command Block",
+        2256 => "13 Disc",
+        2257 => "Cat Disc",
+        2258 => "Blocks Disc",
+        2259 => "Chirp Disc",
+        2260 => "Far Disc",
+        2261 => "Mall Disc",
+        2262 => "Mellohi Disc",
+        2263 => "Stal Disc",
+        2264 => "Strad Disc",
+        2265 => "Ward Disc",
+        2266 => "11 Disc",
+        2267 => "Wait Disc",
+        _ => "Item",
+    }
+}
+
+pub fn block_emission(id: u16) -> u8 {
+    match id {
+        10 | 11 => 15, // Lava
+        50 => 14,      // Torch
+        51 => 15,      // Fire
+        62 => 13,      // Lit Furnace
+        76 => 7,       // Redstone Torch
+        89 => 15,      // Glowstone
+        90 => 11,      // Nether Portal
+        91 => 15,      // Jack o'Lantern
+        119 => 15,     // End Portal
+        124 => 15,     // Redstone Lamp (on)
+        138 => 15,     // Beacon
+        169 => 15,     // Sea Lantern
+        _ => 0,
+    }
+}
+
+pub fn is_opaque_cube(id: u16) -> bool {
+    match id {
+        0 | 6 | 8 | 9 | 10 | 11 | 18 | 20 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 36 | 37 | 38
+        | 39 | 40 | 44 | 50 | 51 | 52 | 53 | 54 | 55 | 59 | 60 | 63 | 64 | 65 | 66
+        | 67 | 68 | 69 | 70 | 71 | 72 | 75 | 76 | 77 | 78 | 79 | 81 | 83 | 85 | 90
+        | 92 | 93 | 94 | 95 | 96 | 101 | 102 | 104 | 105 | 106 | 107 | 108 | 109 | 111 | 113 | 114
+        | 115 | 116 | 117 | 118 | 119 | 120 | 122 | 126 | 127 | 128 | 130 | 131 | 132 | 134 | 135
+        | 136 | 138 | 139 | 140 | 141 | 142 | 143 | 144 | 145 | 146 | 147 | 148 | 149 | 150 | 151
+        | 154 | 156 | 157 | 160 | 161 | 163 | 164 | 165 | 167 | 171 | 175 => false,
+        _ => true,
     }
 }
 
@@ -155,6 +679,8 @@ impl ChunkSection {
         let idx = Self::block_index(x, y, z);
         self.block_ids[idx] = (block.id & 0xFF) as u8;
         set_nibble(self.block_meta.as_mut(), idx, block.meta);
+        set_nibble(self.block_light.as_mut(), idx, block.block_light);
+        set_nibble(self.sky_light.as_mut(), idx, block.sky_light);
 
         let add_val = ((block.id >> 8) & 0x0F) as u8;
         if add_val != 0 {
@@ -295,7 +821,7 @@ impl ChunkColumn {
         let section_y = y / 16;
         let local_y = y % 16;
 
-        if self.sections[section_y].is_none() && !block.is_air() {
+        if self.sections[section_y].is_none() && (!block.is_air() || block.block_light > 0 || block.sky_light > 0) {
             self.sections[section_y] = Some(Box::new(ChunkSection::new()));
         }
 
@@ -326,6 +852,7 @@ impl ChunkColumn {
 pub struct World {
     chunks: HashMap<(i32, i32), ChunkColumn>,
     pub dirty_chunks: std::collections::HashSet<(i32, i32)>,
+    pub enchanting_tables: std::collections::HashSet<(i32, i32, i32)>,
 }
 
 #[allow(dead_code)]
@@ -334,16 +861,36 @@ impl World {
         Self {
             chunks: HashMap::new(),
             dirty_chunks: std::collections::HashSet::new(),
+            enchanting_tables: std::collections::HashSet::new(),
         }
     }
 
     pub fn insert_chunk(&mut self, column: ChunkColumn) {
         let (cx, cz) = (column.x, column.z);
+        for (sy, sec_opt) in column.sections.iter().enumerate() {
+            if let Some(sec) = sec_opt {
+                for y in 0..16 {
+                    for z in 0..16 {
+                        for x in 0..16 {
+                            let idx = ChunkSection::block_index(x, y, z);
+                            if sec.block_ids[idx] == 116 {
+                                self.enchanting_tables.insert((
+                                    cx * 16 + x as i32,
+                                    sy as i32 * 16 + y as i32,
+                                    cz * 16 + z as i32,
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
         self.chunks.insert((cx, cz), column);
         self.mark_dirty_with_neighbors(cx, cz);
     }
 
     pub fn remove_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> Option<ChunkColumn> {
+        self.enchanting_tables.retain(|&(x, _, z)| x.div_euclid(16) != chunk_x || z.div_euclid(16) != chunk_z);
         self.mark_dirty_with_neighbors(chunk_x, chunk_z);
         self.chunks.remove(&(chunk_x, chunk_z))
     }
@@ -380,9 +927,17 @@ impl World {
         }
     }
 
-    pub fn set_block(&mut self, world_x: i32, world_y: i32, world_z: i32, block: Block) {
+    pub fn set_block_raw(&mut self, world_x: i32, world_y: i32, world_z: i32, block: Block) {
         if !(0..=255).contains(&world_y) {
             return;
+        }
+
+        let old_block = self.get_block(world_x, world_y, world_z);
+        if old_block.id == 116 {
+            self.enchanting_tables.remove(&(world_x, world_y, world_z));
+        }
+        if block.id == 116 {
+            self.enchanting_tables.insert((world_x, world_y, world_z));
         }
 
         let chunk_x = world_x.div_euclid(16);
@@ -393,6 +948,164 @@ impl World {
         if let Some(chunk) = self.get_chunk_mut(chunk_x, chunk_z) {
             chunk.set_block(local_x, world_y as usize, local_z, block);
             self.mark_dirty_with_neighbors(chunk_x, chunk_z);
+        }
+    }
+
+    pub fn set_block(&mut self, world_x: i32, world_y: i32, world_z: i32, block: Block) {
+        self.set_block_with_lighting(world_x, world_y, world_z, block);
+    }
+
+    pub fn set_block_with_lighting(&mut self, world_x: i32, world_y: i32, world_z: i32, mut block: Block) {
+        if !(0..=255).contains(&world_y) {
+            return;
+        }
+
+        let old_block = self.get_block(world_x, world_y, world_z);
+        let old_emit = block_emission(old_block.id);
+        let new_emit = block_emission(block.id);
+
+        if new_emit > 0 {
+            block.block_light = new_emit;
+        }
+
+        self.set_block_raw(world_x, world_y, world_z, block);
+
+        if old_emit > 0 && new_emit < old_emit {
+            self.remove_block_light(world_x, world_y, world_z, old_emit);
+        } else if new_emit > 0 {
+            self.propagate_block_light(world_x, world_y, world_z, new_emit);
+        }
+    }
+
+    pub fn propagate_block_light(&mut self, start_x: i32, start_y: i32, start_z: i32, initial_light: u8) {
+        if !(0..=255).contains(&start_y) || initial_light == 0 {
+            return;
+        }
+
+        let mut queue = std::collections::VecDeque::new();
+        queue.push_back((start_x, start_y, start_z, initial_light));
+
+        let dirs = [
+            (1, 0, 0), (-1, 0, 0),
+            (0, 1, 0), (0, -1, 0),
+            (0, 0, 1), (0, 0, -1),
+        ];
+
+        while let Some((x, y, z, light)) = queue.pop_front() {
+            if light <= 1 {
+                continue;
+            }
+            let next_light = light - 1;
+
+            for (dx, dy, dz) in dirs {
+                let nx = x + dx;
+                let ny = y + dy;
+                let nz = z + dz;
+
+                if !(0..=255).contains(&ny) {
+                    continue;
+                }
+
+                let chunk_x = nx.div_euclid(16);
+                let chunk_z = nz.div_euclid(16);
+                if self.get_chunk(chunk_x, chunk_z).is_none() {
+                    continue;
+                }
+
+                let mut b = self.get_block(nx, ny, nz);
+                if is_opaque_cube(b.id) {
+                    continue;
+                }
+
+                if b.block_light < next_light {
+                    b.block_light = next_light;
+                    self.set_block_raw(nx, ny, nz, b);
+                    queue.push_back((nx, ny, nz, next_light));
+                }
+            }
+        }
+    }
+
+    pub fn remove_block_light(&mut self, start_x: i32, start_y: i32, start_z: i32, old_light: u8) {
+        if !(0..=255).contains(&start_y) || old_light == 0 {
+            return;
+        }
+
+        let mut remove_queue = std::collections::VecDeque::new();
+        let mut propagate_queue = std::collections::VecDeque::new();
+
+        remove_queue.push_back((start_x, start_y, start_z, old_light));
+        
+        // Clear the starting block's light since it no longer emits
+        let mut start_b = self.get_block(start_x, start_y, start_z);
+        start_b.block_light = 0;
+        self.set_block_raw(start_x, start_y, start_z, start_b);
+
+        let dirs = [
+            (1, 0, 0), (-1, 0, 0),
+            (0, 1, 0), (0, -1, 0),
+            (0, 0, 1), (0, 0, -1),
+        ];
+
+        while let Some((x, y, z, val)) = remove_queue.pop_front() {
+            for (dx, dy, dz) in dirs {
+                let nx = x + dx;
+                let ny = y + dy;
+                let nz = z + dz;
+
+                if !(0..=255).contains(&ny) {
+                    continue;
+                }
+
+                let chunk_x = nx.div_euclid(16);
+                let chunk_z = nz.div_euclid(16);
+                if self.get_chunk(chunk_x, chunk_z).is_none() {
+                    continue;
+                }
+
+                let mut nb = self.get_block(nx, ny, nz);
+                if nb.block_light != 0 && nb.block_light < val {
+                    remove_queue.push_back((nx, ny, nz, nb.block_light));
+                    nb.block_light = 0;
+                    self.set_block_raw(nx, ny, nz, nb);
+                } else if nb.block_light >= val {
+                    propagate_queue.push_back((nx, ny, nz, nb.block_light));
+                }
+            }
+        }
+
+        while let Some((x, y, z, light)) = propagate_queue.pop_front() {
+            if light <= 1 {
+                continue;
+            }
+            let next_light = light - 1;
+
+            for (dx, dy, dz) in dirs {
+                let nx = x + dx;
+                let ny = y + dy;
+                let nz = z + dz;
+
+                if !(0..=255).contains(&ny) {
+                    continue;
+                }
+
+                let chunk_x = nx.div_euclid(16);
+                let chunk_z = nz.div_euclid(16);
+                if self.get_chunk(chunk_x, chunk_z).is_none() {
+                    continue;
+                }
+
+                let mut b = self.get_block(nx, ny, nz);
+                if is_opaque_cube(b.id) {
+                    continue;
+                }
+
+                if b.block_light < next_light {
+                    b.block_light = next_light;
+                    self.set_block_raw(nx, ny, nz, b);
+                    propagate_queue.push_back((nx, ny, nz, next_light));
+                }
+            }
         }
     }
 

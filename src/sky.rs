@@ -372,12 +372,12 @@ impl SkyRenderer {
                     blend: Some(wgpu::BlendState {
                         color: wgpu::BlendComponent {
                             src_factor: wgpu::BlendFactor::SrcAlpha,
-                            dst_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
                             operation: wgpu::BlendOperation::Add,
                         },
                         alpha: wgpu::BlendComponent {
-                            src_factor: wgpu::BlendFactor::Zero,
-                            dst_factor: wgpu::BlendFactor::One,
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
                             operation: wgpu::BlendOperation::Add,
                         },
                     }),
@@ -664,24 +664,26 @@ impl SkyRenderer {
         let mut dome_verts: Vec<SkyVertex> = Vec::with_capacity(50);
         let mut dome_indices: Vec<u32> = Vec::with_capacity(200);
 
-        // Vanilla 1.7.10 sky color blending:
-        // At night, uniform (8, 10, 15). At day, transitions to saturated deep blue.
-        let night_sky = [0.0314f32, 0.0392f32, 0.0588f32];
-        let day_zenith = [0.541f32, 0.706f32, 0.961f32];
-        let day_upper = [0.541f32, 0.706f32, 0.961f32];
-
-        let zenith_color = [
-            night_sky[0] + (day_zenith[0] - night_sky[0]) * raw_sun,
-            night_sky[1] + (day_zenith[1] - night_sky[1]) * raw_sun,
-            night_sky[2] + (day_zenith[2] - night_sky[2]) * raw_sun,
+        // Vanilla 1.7.10 sky vs fog color blending:
+        let day_sky = [0.466f32, 0.658f32, 1.0f32];
+        let true_sky_color = [
+            day_sky[0] * raw_sun,
+            day_sky[1] * raw_sun,
+            day_sky[2] * raw_sun,
             1.0,
         ];
+        
+        // zenith is the true sky color, horizon is the fog color (passed in as sky_color)
+        let zenith_color = true_sky_color;
+        
+        // For upper color, we interpolate slightly between zenith and horizon for a smooth dome
         let upper_color = [
-            night_sky[0] + (day_upper[0] - night_sky[0]) * raw_sun,
-            night_sky[1] + (day_upper[1] - night_sky[1]) * raw_sun,
-            night_sky[2] + (day_upper[2] - night_sky[2]) * raw_sun,
+            zenith_color[0] * 0.7 + sky_color[0] * 0.3,
+            zenith_color[1] * 0.7 + sky_color[1] * 0.3,
+            zenith_color[2] * 0.7 + sky_color[2] * 0.3,
             1.0,
         ];
+        
         let horizon_color = [sky_color[0], sky_color[1], sky_color[2], 1.0];
         let void_color = [0.0, 0.0, 0.0, 1.0];
 
@@ -873,28 +875,39 @@ impl SkyRenderer {
         }
 
 
-        // 4. Build Sunset Fan
+        // 4. Build Sunset / Sunrise Horizon Fan (Minecraft 1.7.10 canonical horizon fan)
         if let Some(sc) = crate::camera::calc_sunrise_sunset_colors(celestial_angle) {
-            let center = sun_center_world;
+            let r_y = glam::Mat4::from_rotation_y(-90.0f32.to_radians());
+            let r_x = glam::Mat4::from_rotation_x(90.0f32.to_radians());
+            let is_sunset = (celestial_angle * std::f32::consts::PI * 2.0).sin() < 0.0;
+            let r_z1 = glam::Mat4::from_rotation_z(if is_sunset { 180.0f32.to_radians() } else { 0.0 });
+            let r_z2 = glam::Mat4::from_rotation_z(90.0f32.to_radians());
+            let mat = r_y * r_x * r_z1 * r_z2;
+
             let mut sf_verts = Vec::with_capacity(17);
             let mut sf_indices = Vec::with_capacity(48);
 
+            let local_center = glam::Vec3::new(0.0, 100.0, 0.0);
+            let center_world = eye + mat.transform_point3(local_center);
+
             sf_verts.push(SkyVertex {
-                position: center.to_array(),
+                position: center_world.to_array(),
                 uv: [0.0, 0.0],
                 color: sc,
             });
 
-            let radius = 35.0f32;
             let outer_col = [sc[0], sc[1], sc[2], 0.0];
-            let v_z = Vec3::new(0.0, 0.0, 1.0);
-            let v_t = sun_dir.cross(v_z).normalize();
 
             for i in 0..16 {
                 let theta = (i as f32 / 16.0) * std::f32::consts::PI * 2.0;
-                let offset = v_t * (theta.cos() * radius) + v_z * (theta.sin() * radius);
+                let local_pos = glam::Vec3::new(
+                    theta.sin() * 120.0,
+                    theta.cos() * 120.0,
+                    -theta.cos() * 40.0 * sc[3],
+                );
+                let world_pos = eye + mat.transform_point3(local_pos);
                 sf_verts.push(SkyVertex {
-                    position: (center + offset).to_array(),
+                    position: world_pos.to_array(),
                     uv: [0.0, 0.0],
                     color: outer_col,
                 });
@@ -981,12 +994,18 @@ impl SkyRenderer {
         let y0 = 128.0f32;
         let y1 = 132.0f32;
 
-        let base_cloud_col = [
-            0.098f32 + (1.0f32 - 0.098f32) * raw_sun,
-            0.098f32 + (1.0f32 - 0.098f32) * raw_sun,
-            0.133f32 + (1.0f32 - 0.133f32) * raw_sun,
-            0.80f32,
-        ];
+        let mut cloud_r = 0.098f32 + (1.0f32 - 0.098f32) * raw_sun;
+        let mut cloud_g = 0.098f32 + (1.0f32 - 0.098f32) * raw_sun;
+        let mut cloud_b = 0.133f32 + (1.0f32 - 0.133f32) * raw_sun;
+
+        if let Some(sc) = crate::camera::calc_sunrise_sunset_colors(celestial_angle) {
+            let sunset_weight = sc[3] * 0.6;
+            cloud_r = cloud_r * (1.0 - sunset_weight) + sc[0] * sunset_weight;
+            cloud_g = cloud_g * (1.0 - sunset_weight) + sc[1] * sunset_weight;
+            cloud_b = cloud_b * (1.0 - sunset_weight) + sc[2] * sunset_weight;
+        }
+
+        let base_cloud_col = [cloud_r, cloud_g, cloud_b, 0.80f32];
 
         let col_top = [base_cloud_col[0], base_cloud_col[1], base_cloud_col[2], base_cloud_col[3]];
         let col_bottom = [base_cloud_col[0] * 0.7, base_cloud_col[1] * 0.7, base_cloud_col[2] * 0.7, base_cloud_col[3]];

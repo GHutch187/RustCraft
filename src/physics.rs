@@ -104,7 +104,7 @@ pub fn has_collision(block_id: u16) -> bool {
     match block_id {
         0 | 6 | 8 | 9 | 10 | 11 | 27 | 28 | 30 | 31 | 32 | 37 | 38 | 39 | 40 | 50 | 51
         | 55 | 59 | 63 | 66 | 68 | 69 | 70 | 72 | 75 | 76 | 77 | 78 | 83 | 90 | 104
-        | 105 | 106 | 115 | 131 | 132 | 141 | 142 | 143 | 175 => false,
+        | 105 | 106 | 115 | 119 | 131 | 132 | 141 | 142 | 143 | 175 => false,
         _ => true,
     }
 }
@@ -166,6 +166,27 @@ pub fn is_in_lava(world: &World, bb: &AABB) -> bool {
                     if check_min_y < lava_y {
                         return true;
                     }
+                }
+            }
+        }
+    }
+    false
+}
+
+pub fn is_in_web(world: &World, bb: &AABB) -> bool {
+    let min_x = (bb.min_x + 0.001).floor() as i32;
+    let max_x = (bb.max_x - 0.001).floor() as i32;
+    let min_y = (bb.min_y + 0.001).floor() as i32;
+    let max_y = (bb.max_y - 0.001).floor() as i32;
+    let min_z = (bb.min_z + 0.001).floor() as i32;
+    let max_z = (bb.max_z - 0.001).floor() as i32;
+
+    for bx in min_x..=max_x {
+        for by in min_y..=max_y {
+            for bz in min_z..=max_z {
+                let block = world.get_block(bx, by, bz);
+                if block.id == 30 {
+                    return true;
                 }
             }
         }
@@ -299,12 +320,25 @@ pub fn get_colliding_bounding_boxes(world: &World, box_to_check: &AABB) -> Vec<A
             for bz in min_z..=max_z {
                 let block = world.get_block(bx, by, bz);
                 if has_collision(block.id) {
+                    let (min_y_off, max_y_off) = match block.id {
+                        120 => (0.0, 13.0 / 16.0),
+                        44 | 126 => {
+                            if (block.meta & 8) != 0 {
+                                (0.5, 1.0)
+                            } else {
+                                (0.0, 0.5)
+                            }
+                        }
+                        26 => (0.0, 9.0 / 16.0),
+                        171 => (0.0, 1.0 / 16.0),
+                        _ => (0.0, 1.0),
+                    };
                     boxes.push(AABB {
                         min_x: bx as f64,
-                        min_y: by as f64,
+                        min_y: by as f64 + min_y_off,
                         min_z: bz as f64,
                         max_x: (bx + 1) as f64,
-                        max_y: (by + 1) as f64,
+                        max_y: by as f64 + max_y_off,
                         max_z: (bz + 1) as f64,
                     });
                 }
@@ -515,6 +549,13 @@ pub fn tick_movement(
 ) -> MoveResult {
     let mut strafe = 0.0f32;
     let mut forward = 0.0f32;
+
+    let player_box = AABB::for_player(x, y, z);
+    if is_in_web(world, &player_box) {
+        motion_x *= 0.25;
+        motion_y *= 0.05;
+        motion_z *= 0.25;
+    }
 
     if input_forward {
         forward += 1.0;
@@ -739,6 +780,22 @@ mod tests {
         let (push_x, _push_y, push_z) = get_water_flow(&world, &bb);
         assert!(push_x > 0.0, "Expected push_x > 0 towards downstream (+X), got {}", push_x);
         assert_eq!(push_z, 0.0);
+    }
+
+    #[test]
+    fn test_portal_and_frame_physics() {
+        assert!(!has_collision(90)); // Nether portal
+        assert!(!has_collision(119)); // End portal
+        assert!(has_collision(120)); // End portal frame
+
+        let mut world = World::new();
+        world.insert_chunk(crate::world::ChunkColumn::new(0, 0));
+        world.set_block(0, 64, 0, crate::world::Block { id: 120, meta: 0, block_light: 0, sky_light: 15 });
+
+        let bb = AABB::for_player(0.5, 64.0, 0.5);
+        let boxes = get_colliding_bounding_boxes(&world, &bb);
+        assert_eq!(boxes.len(), 1);
+        assert!((boxes[0].max_y - (64.0 + 13.0 / 16.0)).abs() < 1e-4);
     }
 }
 

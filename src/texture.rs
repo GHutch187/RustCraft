@@ -1,7 +1,7 @@
 use crate::raycast::BlockFace;
 
 pub const ATLAS_WIDTH: u32 = 256;
-pub const ATLAS_HEIGHT: u32 = 256;
+pub const ATLAS_HEIGHT: u32 = 512;
 pub const TILE_SIZE: u32 = 16;
 pub const TILES_PER_ROW: u32 = ATLAS_WIDTH / TILE_SIZE;
 
@@ -94,6 +94,7 @@ const CACTUS_SIDE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/bl
 const PUMPKIN_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/pumpkin_top.png");
 const PUMPKIN_SIDE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/pumpkin_side.png");
 const PUMPKIN_FACE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/pumpkin_face_off.png");
+const PUMPKIN_FACE_ON_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/pumpkin_face_on.png");
 
 const MELON_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/melon_top.png");
 const MELON_SIDE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/melon_side.png");
@@ -147,6 +148,7 @@ const DOOR_IRON_LOWER_BYTES: &[u8] = include_bytes!("../assets/minecraft/texture
 const TRAPDOOR_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/trapdoor.png");
 
 const RAIL_NORMAL_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/rail_normal.png");
+const RAIL_NORMAL_TURNED_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/rail_normal_turned.png");
 const RAIL_GOLDEN_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/rail_golden.png");
 const RAIL_GOLDEN_POWERED_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/rail_golden_powered.png");
 const RAIL_DETECTOR_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/rail_detector.png");
@@ -224,6 +226,24 @@ const GLASS_GREEN_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/bl
 const GLASS_RED_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_red.png");
 const GLASS_BLACK_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_black.png");
 
+const GLASS_PANE_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top.png");
+const GLASS_PANE_TOP_WHITE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top_white.png");
+const GLASS_PANE_TOP_ORANGE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top_orange.png");
+const GLASS_PANE_TOP_MAGENTA_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top_magenta.png");
+const GLASS_PANE_TOP_LIGHT_BLUE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top_light_blue.png");
+const GLASS_PANE_TOP_YELLOW_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top_yellow.png");
+const GLASS_PANE_TOP_LIME_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top_lime.png");
+const GLASS_PANE_TOP_PINK_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top_pink.png");
+const GLASS_PANE_TOP_GRAY_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top_gray.png");
+const GLASS_PANE_TOP_SILVER_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top_silver.png");
+const GLASS_PANE_TOP_CYAN_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top_cyan.png");
+const GLASS_PANE_TOP_PURPLE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top_purple.png");
+const GLASS_PANE_TOP_BLUE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top_blue.png");
+const GLASS_PANE_TOP_BROWN_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top_brown.png");
+const GLASS_PANE_TOP_GREEN_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top_green.png");
+const GLASS_PANE_TOP_RED_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top_red.png");
+const GLASS_PANE_TOP_BLACK_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/glass_pane_top_black.png");
+
 const BED_FEET_END_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/bed_feet_end.png");
 const BED_FEET_SIDE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/bed_feet_side.png");
 const BED_FEET_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/bed_feet_top.png");
@@ -231,7 +251,103 @@ const BED_HEAD_END_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/b
 const BED_HEAD_SIDE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/bed_head_side.png");
 const BED_HEAD_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/bed_head_top.png");
 
-fn copy_tile(atlas: &mut [u8], slot: u8, png_bytes: &[u8]) {
+const ENDFRAME_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/endframe_top.png");
+const ENDFRAME_SIDE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/endframe_side.png");
+const ENDFRAME_EYE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/endframe_eye.png");
+const PORTAL_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/portal.png");
+const END_PORTAL_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/entity/end_portal.png");
+const FIRE_LAYER_0_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/fire_layer_0.png");
+const MUSHROOM_BROWN_SKIN_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/mushroom_block_skin_brown.png");
+const MUSHROOM_RED_SKIN_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/mushroom_block_skin_red.png");
+const MUSHROOM_STEM_SKIN_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/mushroom_block_skin_stem.png");
+const MUSHROOM_INSIDE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/mushroom_block_inside.png");
+const LEAVES_ACACIA_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/leaves_acacia.png");
+const LEAVES_BIG_OAK_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/leaves_big_oak.png");
+const NOTEBLOCK_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/noteblock.png");
+const WEB_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/web.png");
+const FURNACE_FRONT_ON_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/furnace_front_on.png");
+const CAULDRON_SIDE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/cauldron_side.png");
+const CAULDRON_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/cauldron_top.png");
+const CAULDRON_INNER_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/cauldron_inner.png");
+const CAULDRON_BOTTOM_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/cauldron_bottom.png");
+const BREWING_STAND_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/brewing_stand.png");
+const BREWING_STAND_BASE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/brewing_stand_base.png");
+const JUKEBOX_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/jukebox_top.png");
+const JUKEBOX_SIDE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/jukebox_side.png");
+const DISPENSER_FRONT_HORIZONTAL_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/dispenser_front_horizontal.png");
+const DISPENSER_FRONT_VERTICAL_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/dispenser_front_vertical.png");
+const DROPPER_FRONT_HORIZONTAL_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/dropper_front_horizontal.png");
+const DROPPER_FRONT_VERTICAL_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/dropper_front_vertical.png");
+
+const ANVIL_BASE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/anvil_base.png");
+const ANVIL_TOP_0_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/anvil_top_damaged_0.png");
+const ANVIL_TOP_1_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/anvil_top_damaged_1.png");
+const ANVIL_TOP_2_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/anvil_top_damaged_2.png");
+const BEACON_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/beacon.png");
+const DAYLIGHT_DETECTOR_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/daylight_detector_top.png");
+const DAYLIGHT_DETECTOR_SIDE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/daylight_detector_side.png");
+const ENCHANTING_TABLE_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/enchanting_table_top.png");
+const ENCHANTING_TABLE_SIDE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/enchanting_table_side.png");
+const ENCHANTING_TABLE_BOTTOM_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/enchanting_table_bottom.png");
+const CHEST_NORMAL_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/entity/chest/normal.png");
+const CHEST_TRAPPED_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/entity/chest/trapped.png");
+const CHEST_ENDER_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/entity/chest/ender.png");
+const CHEST_NORMAL_DOUBLE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/entity/chest/normal_double.png");
+const CHEST_TRAPPED_DOUBLE_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/entity/chest/trapped_double.png");
+const ENCHANTING_TABLE_BOOK_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/entity/enchanting_table_book.png");
+const DOUBLE_PLANT_SUNFLOWER_BOTTOM_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/double_plant_sunflower_bottom.png");
+const DOUBLE_PLANT_SUNFLOWER_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/double_plant_sunflower_top.png");
+const DOUBLE_PLANT_SUNFLOWER_FRONT_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/double_plant_sunflower_front.png");
+const DOUBLE_PLANT_SUNFLOWER_BACK_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/double_plant_sunflower_back.png");
+const DOUBLE_PLANT_SYRINGA_BOTTOM_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/double_plant_syringa_bottom.png");
+const DOUBLE_PLANT_SYRINGA_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/double_plant_syringa_top.png");
+const DOUBLE_PLANT_GRASS_BOTTOM_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/double_plant_grass_bottom.png");
+const DOUBLE_PLANT_GRASS_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/double_plant_grass_top.png");
+const DOUBLE_PLANT_FERN_BOTTOM_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/double_plant_fern_bottom.png");
+const DOUBLE_PLANT_FERN_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/double_plant_fern_top.png");
+const DOUBLE_PLANT_ROSE_BOTTOM_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/double_plant_rose_bottom.png");
+const DOUBLE_PLANT_ROSE_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/double_plant_rose_top.png");
+const DOUBLE_PLANT_PAEONIA_BOTTOM_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/double_plant_paeonia_bottom.png");
+const DOUBLE_PLANT_PAEONIA_TOP_BYTES: &[u8] = include_bytes!("../assets/minecraft/textures/blocks/double_plant_paeonia_top.png");
+
+fn generate_end_portal_tile() -> image::RgbaImage {
+    let mut img = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
+    // Deep cosmic space void colors
+    for y in 0..TILE_SIZE {
+        for x in 0..TILE_SIZE {
+            let nx = x as f32 / 15.0;
+            let ny = y as f32 / 15.0;
+            let swirl = (nx * 4.0).sin() * (ny * 4.0).cos() * 0.5 + 0.5;
+            let r = (10.0 + swirl * 24.0) as u8;
+            let g = (8.0 + (1.0 - swirl) * 22.0) as u8;
+            let b = (24.0 + swirl * 32.0) as u8;
+            img.put_pixel(x, y, image::Rgba([r, g, b, 255]));
+        }
+    }
+    // Authentic twinkling cosmic stars (cyan, magenta, bright white)
+    let stars = [
+        (2, 3, [255, 255, 255, 255]),
+        (3, 3, [160, 220, 255, 255]),
+        (8, 2, [140, 240, 255, 255]),
+        (13, 4, [255, 160, 255, 255]),
+        (6, 7, [255, 255, 255, 255]),
+        (11, 8, [180, 240, 255, 255]),
+        (3, 10, [240, 150, 255, 255]),
+        (9, 11, [255, 255, 255, 255]),
+        (14, 11, [150, 230, 255, 255]),
+        (5, 13, [180, 220, 255, 255]),
+        (12, 14, [255, 255, 255, 255]),
+        (1, 14, [240, 160, 240, 255]),
+        (7, 5, [100, 120, 180, 255]),
+        (10, 6, [120, 100, 170, 255]),
+    ];
+    for &(sx, sy, col) in &stars {
+        img.put_pixel(sx, sy, image::Rgba(col));
+    }
+    img
+}
+
+fn copy_tile(atlas: &mut [u8], slot: u16, png_bytes: &[u8]) {
     let img = match image::load_from_memory_with_format(png_bytes, image::ImageFormat::Png) {
         Ok(i) => i.to_rgba8(),
         Err(_) => return,
@@ -248,7 +364,9 @@ fn copy_tile(atlas: &mut [u8], slot: u8, png_bytes: &[u8]) {
         img
     };
 
-    let final_tile = if frame_img.width() == TILE_SIZE && frame_img.height() == TILE_SIZE {
+    let final_tile = if slot == 221 {
+        generate_end_portal_tile()
+    } else if frame_img.width() == TILE_SIZE && frame_img.height() == TILE_SIZE {
         frame_img
     } else {
         image::imageops::resize(&frame_img, TILE_SIZE, TILE_SIZE, image::imageops::FilterType::Lanczos3)
@@ -270,7 +388,168 @@ fn copy_tile(atlas: &mut [u8], slot: u8, png_bytes: &[u8]) {
     }
 }
 
-const BLOCK_TILES: &[(u8, &str, &[u8])] = &[
+fn copy_raw_tile(atlas: &mut [u8], slot: u16, tile: &image::RgbaImage) {
+    let col = (slot as u32) % TILES_PER_ROW;
+    let row = (slot as u32) / TILES_PER_ROW;
+    let base_x = col * TILE_SIZE;
+    let base_y = row * TILE_SIZE;
+
+    for y in 0..TILE_SIZE {
+        for x in 0..TILE_SIZE {
+            let px = tile.get_pixel(x, y);
+            let atlas_x = base_x + x;
+            let atlas_y = base_y + y;
+            let idx = ((atlas_y * ATLAS_WIDTH + atlas_x) * 4) as usize;
+            atlas[idx..idx + 4].copy_from_slice(&px.0);
+        }
+    }
+}
+
+fn copy_chest_tiles(atlas: &mut [u8], top_slot: u16, side_slot: u16, front_slot: u16, png_bytes: &[u8]) {
+    let img = match image::load_from_memory_with_format(png_bytes, image::ImageFormat::Png) {
+        Ok(i) => i.to_rgba8(),
+        Err(_) => return,
+    };
+    if img.width() < 64 || img.height() < 64 {
+        return;
+    }
+
+    // Top: 14x14 lid top at (14, 0, 28, 14) -> placed at (1, 1) in 16x16 tile
+    let mut top_tile = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
+    let top_crop = image::imageops::crop_imm(&img, 14, 0, 14, 14).to_image();
+    image::imageops::overlay(&mut top_tile, &top_crop, 1, 1);
+    copy_raw_tile(atlas, top_slot, &top_tile);
+
+    // Side: lid side (0, 14, 14, 19) [14x5] + base side (0, 34, 14, 43) [14x9] -> placed at (1, 2) in 16x16 tile
+    let mut side_tile = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
+    let lid_side = image::imageops::crop_imm(&img, 0, 14, 14, 5).to_image();
+    let base_side = image::imageops::crop_imm(&img, 0, 34, 14, 9).to_image();
+    image::imageops::overlay(&mut side_tile, &lid_side, 1, 2);
+    image::imageops::overlay(&mut side_tile, &base_side, 1, 7);
+    copy_raw_tile(atlas, side_slot, &side_tile);
+
+    // Front: lid front (14, 14, 28, 19) [14x5] + base front (14, 34, 28, 43) [14x9] + knob -> placed at (1, 2) in 16x16 tile
+    let mut front_tile = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
+    let lid_front = image::imageops::crop_imm(&img, 14, 14, 14, 5).to_image();
+    let base_front = image::imageops::crop_imm(&img, 14, 34, 14, 9).to_image();
+    let knob = image::imageops::crop_imm(&img, 1, 1, 2, 4).to_image();
+    image::imageops::overlay(&mut front_tile, &lid_front, 1, 2);
+    image::imageops::overlay(&mut front_tile, &base_front, 1, 7);
+    image::imageops::overlay(&mut front_tile, &knob, 7, 5);
+    copy_raw_tile(atlas, front_slot, &front_tile);
+}
+
+fn copy_double_chest_tiles(atlas: &mut [u8], base_left: u16, base_right: u16, png_bytes: &[u8]) {
+    let img = match image::load_from_memory_with_format(png_bytes, image::ImageFormat::Png) {
+        Ok(i) => i.to_rgba8(),
+        Err(_) => return,
+    };
+    if img.width() < 128 || img.height() < 64 {
+        return;
+    }
+
+    // Left half:
+    // Top (15x14) at (14, 0) -> placed at (1, 1) in 16x16
+    let mut top_l = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
+    let top_crop_l = image::imageops::crop_imm(&img, 14, 0, 15, 14).to_image();
+    image::imageops::overlay(&mut top_l, &top_crop_l, 1, 1);
+    copy_raw_tile(atlas, base_left, &top_l);
+
+    // Outer side (left side, 14x14) at (44, 14) + (44, 34)
+    let mut side_l = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
+    let lid_side_l = image::imageops::crop_imm(&img, 44, 14, 14, 5).to_image();
+    let base_side_l = image::imageops::crop_imm(&img, 44, 34, 14, 9).to_image();
+    image::imageops::overlay(&mut side_l, &lid_side_l, 1, 2);
+    image::imageops::overlay(&mut side_l, &base_side_l, 1, 7);
+    copy_raw_tile(atlas, base_left + 1, &side_l);
+
+    // Front (15x14) at (14, 14) + knob left half (1x4) from (1, 1) placed at x=15
+    let mut front_l = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
+    let lid_front_l = image::imageops::crop_imm(&img, 14, 14, 15, 5).to_image();
+    let base_front_l = image::imageops::crop_imm(&img, 14, 34, 15, 9).to_image();
+    let knob_l = image::imageops::crop_imm(&img, 1, 1, 1, 4).to_image();
+    image::imageops::overlay(&mut front_l, &lid_front_l, 1, 2);
+    image::imageops::overlay(&mut front_l, &base_front_l, 1, 7);
+    image::imageops::overlay(&mut front_l, &knob_l, 15, 5);
+    copy_raw_tile(atlas, base_left + 2, &front_l);
+
+    // Back of left half (15x14) at (73, 14) and (73, 34)
+    let mut back_l = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
+    let lid_back_l = image::imageops::crop_imm(&img, 73, 14, 15, 5).to_image();
+    let base_back_l = image::imageops::crop_imm(&img, 73, 34, 15, 9).to_image();
+    image::imageops::overlay(&mut back_l, &lid_back_l, 1, 2);
+    image::imageops::overlay(&mut back_l, &base_back_l, 1, 7);
+    copy_raw_tile(atlas, base_left + 3, &back_l);
+
+    // Right half:
+    // Top (15x14) at (29, 0) -> placed at (0, 1) in 16x16
+    let mut top_r = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
+    let top_crop_r = image::imageops::crop_imm(&img, 29, 0, 15, 14).to_image();
+    image::imageops::overlay(&mut top_r, &top_crop_r, 0, 1);
+    copy_raw_tile(atlas, base_right, &top_r);
+
+    // Outer side (right side, 14x14) at (0, 14) + (0, 34)
+    let mut side_r = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
+    let lid_side_r = image::imageops::crop_imm(&img, 0, 14, 14, 5).to_image();
+    let base_side_r = image::imageops::crop_imm(&img, 0, 34, 14, 9).to_image();
+    image::imageops::overlay(&mut side_r, &lid_side_r, 1, 2);
+    image::imageops::overlay(&mut side_r, &base_side_r, 1, 7);
+    copy_raw_tile(atlas, base_right + 1, &side_r);
+
+    // Front (15x14) at (29, 14) + knob right half (1x4) from (2, 1) placed at x=0
+    let mut front_r = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
+    let lid_front_r = image::imageops::crop_imm(&img, 29, 14, 15, 5).to_image();
+    let base_front_r = image::imageops::crop_imm(&img, 29, 34, 15, 9).to_image();
+    let knob_r = image::imageops::crop_imm(&img, 2, 1, 1, 4).to_image();
+    image::imageops::overlay(&mut front_r, &lid_front_r, 0, 2);
+    image::imageops::overlay(&mut front_r, &base_front_r, 0, 7);
+    image::imageops::overlay(&mut front_r, &knob_r, 0, 5);
+    copy_raw_tile(atlas, base_right + 2, &front_r);
+
+    // Back of right half (15x14) at (58, 14) and (58, 34)
+    let mut back_r = image::RgbaImage::new(TILE_SIZE, TILE_SIZE);
+    let lid_back_r = image::imageops::crop_imm(&img, 58, 14, 15, 5).to_image();
+    let base_back_r = image::imageops::crop_imm(&img, 58, 34, 15, 9).to_image();
+    image::imageops::overlay(&mut back_r, &lid_back_r, 0, 2);
+    image::imageops::overlay(&mut back_r, &base_back_r, 0, 7);
+    copy_raw_tile(atlas, base_right + 3, &back_r);
+}
+
+pub fn get_book_texture_uv(px: f32, py: f32) -> [f32; 2] {
+    [px / ATLAS_WIDTH as f32, (304.0 + py) / ATLAS_HEIGHT as f32]
+}
+
+fn copy_book_tiles(atlas: &mut [u8], cover_slot: u16, pages_slot: u16, png_bytes: &[u8]) {
+    let img = match image::load_from_memory_with_format(png_bytes, image::ImageFormat::Png) {
+        Ok(i) => i.to_rgba8(),
+        Err(_) => return,
+    };
+    // Legacy / fallback slots:
+    let cover_crop = image::imageops::crop_imm(&img, 0, 0, 24.min(img.width()), 10.min(img.height())).to_image();
+    let cover_tile = image::imageops::resize(&cover_crop, TILE_SIZE, TILE_SIZE, image::imageops::FilterType::Nearest);
+    copy_raw_tile(atlas, cover_slot, &cover_tile);
+
+    let pages_crop = image::imageops::crop_imm(&img, 0, 10, 24.min(img.width()), 10.min(img.height())).to_image();
+    let pages_tile = image::imageops::resize(&pages_crop, TILE_SIZE, TILE_SIZE, image::imageops::FilterType::Nearest);
+    copy_raw_tile(atlas, pages_slot, &pages_tile);
+
+    // Full 64x32 entity texture at atlas base (0, 304) spanning rows 19..21:
+    let book_w = img.width().min(64);
+    let book_h = img.height().min(32);
+    let base_y = 304;
+    for y in 0..book_h {
+        for x in 0..book_w {
+            let px = img.get_pixel(x, y);
+            let atlas_x = x;
+            let atlas_y = base_y + y;
+            let idx = ((atlas_y * ATLAS_WIDTH + atlas_x) * 4) as usize;
+            atlas[idx..idx + 4].copy_from_slice(&px.0);
+        }
+    }
+}
+
+
+const BLOCK_TILES: &[(u16, &str, &[u8])] = &[
     (1, "textures/blocks/stone.png", STONE_BYTES),
     (2, "textures/blocks/grass_top.png", GRASS_TOP_BYTES),
     (3, "textures/blocks/grass_side.png", GRASS_SIDE_BYTES),
@@ -470,6 +749,76 @@ const BLOCK_TILES: &[(u8, &str, &[u8])] = &[
     (197, "textures/blocks/bed_head_side.png", BED_HEAD_SIDE_BYTES),
     (198, "textures/blocks/bed_head_top.png", BED_HEAD_TOP_BYTES),
     (199, "textures/blocks/ice_packed.png", ICE_PACKED_BYTES),
+    (200, "textures/blocks/glass_pane_top.png", GLASS_PANE_TOP_BYTES),
+    (201, "textures/blocks/glass_pane_top_white.png", GLASS_PANE_TOP_WHITE_BYTES),
+    (202, "textures/blocks/glass_pane_top_orange.png", GLASS_PANE_TOP_ORANGE_BYTES),
+    (203, "textures/blocks/glass_pane_top_magenta.png", GLASS_PANE_TOP_MAGENTA_BYTES),
+    (204, "textures/blocks/glass_pane_top_light_blue.png", GLASS_PANE_TOP_LIGHT_BLUE_BYTES),
+    (205, "textures/blocks/glass_pane_top_yellow.png", GLASS_PANE_TOP_YELLOW_BYTES),
+    (206, "textures/blocks/glass_pane_top_lime.png", GLASS_PANE_TOP_LIME_BYTES),
+    (207, "textures/blocks/glass_pane_top_pink.png", GLASS_PANE_TOP_PINK_BYTES),
+    (208, "textures/blocks/glass_pane_top_gray.png", GLASS_PANE_TOP_GRAY_BYTES),
+    (209, "textures/blocks/glass_pane_top_silver.png", GLASS_PANE_TOP_SILVER_BYTES),
+    (210, "textures/blocks/glass_pane_top_cyan.png", GLASS_PANE_TOP_CYAN_BYTES),
+    (211, "textures/blocks/glass_pane_top_purple.png", GLASS_PANE_TOP_PURPLE_BYTES),
+    (212, "textures/blocks/glass_pane_top_blue.png", GLASS_PANE_TOP_BLUE_BYTES),
+    (213, "textures/blocks/glass_pane_top_brown.png", GLASS_PANE_TOP_BROWN_BYTES),
+    (214, "textures/blocks/glass_pane_top_green.png", GLASS_PANE_TOP_GREEN_BYTES),
+    (215, "textures/blocks/glass_pane_top_red.png", GLASS_PANE_TOP_RED_BYTES),
+    (216, "textures/blocks/glass_pane_top_black.png", GLASS_PANE_TOP_BLACK_BYTES),
+    (217, "textures/blocks/endframe_top.png", ENDFRAME_TOP_BYTES),
+    (218, "textures/blocks/endframe_side.png", ENDFRAME_SIDE_BYTES),
+    (219, "textures/blocks/endframe_eye.png", ENDFRAME_EYE_BYTES),
+    (220, "textures/blocks/portal.png", PORTAL_BYTES),
+    (221, "textures/entity/end_portal.png", END_PORTAL_BYTES),
+    (222, "textures/blocks/fire_layer_0.png", FIRE_LAYER_0_BYTES),
+    (223, "textures/blocks/mushroom_block_skin_brown.png", MUSHROOM_BROWN_SKIN_BYTES),
+    (224, "textures/blocks/mushroom_block_skin_red.png", MUSHROOM_RED_SKIN_BYTES),
+    (225, "textures/blocks/mushroom_block_skin_stem.png", MUSHROOM_STEM_SKIN_BYTES),
+    (226, "textures/blocks/mushroom_block_inside.png", MUSHROOM_INSIDE_BYTES),
+    (227, "textures/blocks/leaves_acacia.png", LEAVES_ACACIA_BYTES),
+    (228, "textures/blocks/leaves_big_oak.png", LEAVES_BIG_OAK_BYTES),
+    (229, "textures/blocks/noteblock.png", NOTEBLOCK_BYTES),
+    (230, "textures/blocks/web.png", WEB_BYTES),
+    (231, "textures/blocks/furnace_front_on.png", FURNACE_FRONT_ON_BYTES),
+    (232, "textures/blocks/cauldron_side.png", CAULDRON_SIDE_BYTES),
+    (233, "textures/blocks/cauldron_top.png", CAULDRON_TOP_BYTES),
+    (234, "textures/blocks/cauldron_inner.png", CAULDRON_INNER_BYTES),
+    (235, "textures/blocks/cauldron_bottom.png", CAULDRON_BOTTOM_BYTES),
+    (236, "textures/blocks/brewing_stand.png", BREWING_STAND_BYTES),
+    (237, "textures/blocks/brewing_stand_base.png", BREWING_STAND_BASE_BYTES),
+    (238, "textures/blocks/jukebox_top.png", JUKEBOX_TOP_BYTES),
+    (239, "textures/blocks/jukebox_side.png", JUKEBOX_SIDE_BYTES),
+    (240, "textures/blocks/pumpkin_face_on.png", PUMPKIN_FACE_ON_BYTES),
+    (241, "textures/blocks/rail_normal_turned.png", RAIL_NORMAL_TURNED_BYTES),
+    (242, "textures/blocks/dispenser_front_horizontal.png", DISPENSER_FRONT_HORIZONTAL_BYTES),
+    (243, "textures/blocks/dispenser_front_vertical.png", DISPENSER_FRONT_VERTICAL_BYTES),
+    (244, "textures/blocks/dropper_front_horizontal.png", DROPPER_FRONT_HORIZONTAL_BYTES),
+    (245, "textures/blocks/dropper_front_vertical.png", DROPPER_FRONT_VERTICAL_BYTES),
+    (246, "textures/blocks/anvil_base.png", ANVIL_BASE_BYTES),
+    (247, "textures/blocks/anvil_top_damaged_0.png", ANVIL_TOP_0_BYTES),
+    (248, "textures/blocks/anvil_top_damaged_1.png", ANVIL_TOP_1_BYTES),
+    (249, "textures/blocks/anvil_top_damaged_2.png", ANVIL_TOP_2_BYTES),
+    (250, "textures/blocks/beacon.png", BEACON_BYTES),
+    (251, "textures/blocks/daylight_detector_top.png", DAYLIGHT_DETECTOR_TOP_BYTES),
+    (252, "textures/blocks/daylight_detector_side.png", DAYLIGHT_DETECTOR_SIDE_BYTES),
+    (253, "textures/blocks/enchanting_table_top.png", ENCHANTING_TABLE_TOP_BYTES),
+    (254, "textures/blocks/enchanting_table_side.png", ENCHANTING_TABLE_SIDE_BYTES),
+    (255, "textures/blocks/enchanting_table_bottom.png", ENCHANTING_TABLE_BOTTOM_BYTES),
+    (265, "textures/blocks/double_plant_sunflower_bottom.png", DOUBLE_PLANT_SUNFLOWER_BOTTOM_BYTES),
+    (266, "textures/blocks/double_plant_sunflower_top.png", DOUBLE_PLANT_SUNFLOWER_TOP_BYTES),
+    (267, "textures/blocks/double_plant_sunflower_front.png", DOUBLE_PLANT_SUNFLOWER_FRONT_BYTES),
+    (268, "textures/blocks/double_plant_sunflower_back.png", DOUBLE_PLANT_SUNFLOWER_BACK_BYTES),
+    (269, "textures/blocks/double_plant_syringa_bottom.png", DOUBLE_PLANT_SYRINGA_BOTTOM_BYTES),
+    (270, "textures/blocks/double_plant_syringa_top.png", DOUBLE_PLANT_SYRINGA_TOP_BYTES),
+    (271, "textures/blocks/double_plant_grass_bottom.png", DOUBLE_PLANT_GRASS_BOTTOM_BYTES),
+    (272, "textures/blocks/double_plant_grass_top.png", DOUBLE_PLANT_GRASS_TOP_BYTES),
+    (273, "textures/blocks/double_plant_fern_bottom.png", DOUBLE_PLANT_FERN_BOTTOM_BYTES),
+    (274, "textures/blocks/double_plant_fern_top.png", DOUBLE_PLANT_FERN_TOP_BYTES),
+    (275, "textures/blocks/double_plant_rose_bottom.png", DOUBLE_PLANT_ROSE_BOTTOM_BYTES),
+    (276, "textures/blocks/double_plant_rose_top.png", DOUBLE_PLANT_ROSE_TOP_BYTES),
+    (277, "textures/blocks/double_plant_paeonia_bottom.png", DOUBLE_PLANT_PAEONIA_BOTTOM_BYTES),
+    (278, "textures/blocks/double_plant_paeonia_top.png", DOUBLE_PLANT_PAEONIA_TOP_BYTES),
 ];
 
 pub fn build_block_atlas() -> Vec<u8> {
@@ -486,6 +835,24 @@ pub fn build_block_atlas() -> Vec<u8> {
         let bytes = crate::resource_pack::get_texture(path, fallback);
         copy_tile(&mut atlas, slot, &bytes);
     }
+
+    let chest_norm_bytes = crate::resource_pack::get_texture("textures/entity/chest/normal.png", CHEST_NORMAL_BYTES);
+    copy_chest_tiles(&mut atlas, 256, 257, 258, &chest_norm_bytes);
+
+    let chest_trap_bytes = crate::resource_pack::get_texture("textures/entity/chest/trapped.png", CHEST_TRAPPED_BYTES);
+    copy_chest_tiles(&mut atlas, 259, 260, 261, &chest_trap_bytes);
+
+    let chest_ender_bytes = crate::resource_pack::get_texture("textures/entity/chest/ender.png", CHEST_ENDER_BYTES);
+    copy_chest_tiles(&mut atlas, 262, 263, 264, &chest_ender_bytes);
+
+    let book_bytes = crate::resource_pack::get_texture("textures/entity/enchanting_table_book.png", ENCHANTING_TABLE_BOOK_BYTES);
+    copy_book_tiles(&mut atlas, 279, 280, &book_bytes);
+
+    let chest_norm_double_bytes = crate::resource_pack::get_texture("textures/entity/chest/normal_double.png", CHEST_NORMAL_DOUBLE_BYTES);
+    copy_double_chest_tiles(&mut atlas, 281, 285, &chest_norm_double_bytes);
+
+    let chest_trap_double_bytes = crate::resource_pack::get_texture("textures/entity/chest/trapped_double.png", CHEST_TRAPPED_DOUBLE_BYTES);
+    copy_double_chest_tiles(&mut atlas, 289, 293, &chest_trap_double_bytes);
 
     let overlay_bytes = crate::resource_pack::get_texture(
         "textures/blocks/grass_side_overlay.png",
@@ -529,10 +896,23 @@ pub fn build_block_atlas() -> Vec<u8> {
         }
     }
 
+    // Extract 32 frames of nether portal animation into slots 384..415
+    let portal_bytes = crate::resource_pack::get_texture("textures/blocks/portal.png", PORTAL_BYTES);
+    if let Ok(portal_img) = image::load_from_memory(&portal_bytes) {
+        let portal_rgba = portal_img.to_rgba8();
+        for i in 0..32 {
+            let sy = i * 16;
+            if sy + 16 <= portal_rgba.height() {
+                let frame = image::imageops::crop_imm(&portal_rgba, 0, sy, 16, 16).to_image();
+                copy_raw_tile(&mut atlas, 384 + i as u16, &frame);
+            }
+        }
+    }
+
     atlas
 }
 
-fn get_piston_face_slot(meta: u8, face: BlockFace, top_slot: u8) -> u8 {
+fn get_piston_face_slot(meta: u8, face: BlockFace, top_slot: u16) -> u16 {
     let orientation = match meta & 7 {
         0 => BlockFace::Bottom,
         1 => BlockFace::Top,
@@ -558,7 +938,7 @@ fn get_piston_face_slot(meta: u8, face: BlockFace, top_slot: u8) -> u8 {
     }
 }
 
-pub fn get_block_slot(block_id: u16, meta: u8, face: BlockFace) -> (u8, Option<[f32; 3]>) {
+pub fn get_block_slot(block_id: u16, meta: u8, face: BlockFace) -> (u16, Option<[f32; 3]>) {
     match block_id {
         1 => (1, None),
         2 => match face {
@@ -637,7 +1017,7 @@ pub fn get_block_slot(block_id: u16, meta: u8, face: BlockFace) -> (u8, Option<[
         35 => if meta == 0 {
             (27, None)
         } else {
-            (137 + (meta.min(15) as u8), None)
+            (137 + (meta.min(15) as u16), None)
         },
         44 => match meta & 7 {
             1 => match face {
@@ -687,7 +1067,7 @@ pub fn get_block_slot(block_id: u16, meta: u8, face: BlockFace) -> (u8, Option<[
         },
         64 => if (meta & 8) != 0 { (116, None) } else { (117, None) },
         65 => (128, None),
-        66 => (121, None),
+        66 => if (6..=9).contains(&(meta & 15)) { (241, None) } else { (121, None) },
         69 => (176, None),
         70 => (1, None),
         71 => if (meta & 8) != 0 { (118, None) } else { (119, None) },
@@ -706,10 +1086,22 @@ pub fn get_block_slot(block_id: u16, meta: u8, face: BlockFace) -> (u8, Option<[
             BlockFace::North => (52, None),
             _ => (51, None),
         },
-        61 | 62 => match face {
-            BlockFace::Top | BlockFace::Bottom => (53, None),
-            BlockFace::North => (55, None),
-            _ => (54, None),
+        61 | 62 => {
+            let front_face = match meta & 7 {
+                2 => BlockFace::North,
+                3 => BlockFace::South,
+                4 => BlockFace::West,
+                5 => BlockFace::East,
+                _ => BlockFace::North,
+            };
+            let front_slot = if block_id == 62 { 231 } else { 55 };
+            if face == BlockFace::Top || face == BlockFace::Bottom {
+                (53, None)
+            } else if face == front_face {
+                (front_slot, None)
+            } else {
+                (54, None)
+            }
         },
         73 | 74 => (19, None),
         78 | 80 => (21, None),
@@ -721,10 +1113,22 @@ pub fn get_block_slot(block_id: u16, meta: u8, face: BlockFace) -> (u8, Option<[
         },
         82 => (66, None),
         83 => (81, Some([0.48, 0.75, 0.35])),
-        86 | 91 => match face {
-            BlockFace::Top | BlockFace::Bottom => (74, None),
-            BlockFace::North => (76, None),
-            _ => (75, None),
+        86 | 91 => {
+            let front_face = match meta & 3 {
+                0 => BlockFace::South,
+                1 => BlockFace::West,
+                2 => BlockFace::North,
+                3 => BlockFace::East,
+                _ => BlockFace::South,
+            };
+            let front_slot = if block_id == 91 { 240 } else { 76 };
+            if face == BlockFace::Top || face == BlockFace::Bottom {
+                (74, None)
+            } else if face == front_face {
+                (front_slot, None)
+            } else {
+                (75, None)
+            }
         },
         87 => (64, None),
         88 => (173, None),
@@ -777,7 +1181,7 @@ pub fn get_block_slot(block_id: u16, meta: u8, face: BlockFace) -> (u8, Option<[
             },
         },
         157 => if (meta & 8) != 0 { (127, None) } else { (126, None) },
-        159 => (153 + (meta.min(15) as u8), None),
+        159 => (153 + (meta.min(15) as u16), None),
         170 => match face {
             BlockFace::Top | BlockFace::Bottom => (170, None),
             _ => (169, None),
@@ -785,7 +1189,7 @@ pub fn get_block_slot(block_id: u16, meta: u8, face: BlockFace) -> (u8, Option<[
         171 => if meta == 0 {
             (27, None)
         } else {
-            (137 + (meta.min(15) as u8), None)
+            (137 + (meta.min(15) as u16), None)
         },
         172 => (67, None),
         173 => (171, None),
@@ -800,12 +1204,28 @@ pub fn get_block_slot(block_id: u16, meta: u8, face: BlockFace) -> (u8, Option<[
             },
         },
         // Additional Minecraft 1.7.10 blocks
-        23 => match face {
-            BlockFace::North => (55, None),
-            BlockFace::Top | BlockFace::Bottom => (53, None),
-            _ => (54, None),
+        23 => {
+            let facing = match meta & 7 {
+                0 => BlockFace::Bottom,
+                1 => BlockFace::Top,
+                2 => BlockFace::North,
+                3 => BlockFace::South,
+                4 => BlockFace::West,
+                _ => BlockFace::East,
+            };
+            if face == facing {
+                if facing == BlockFace::Top || facing == BlockFace::Bottom {
+                    (243, None)
+                } else {
+                    (242, None)
+                }
+            } else if face == BlockFace::Top || face == BlockFace::Bottom {
+                (53, None)
+            } else {
+                (54, None)
+            }
         },
-        25 => (58, None),
+        25 => (229, None),
         26 => {
             let is_head = (meta & 8) != 0;
             match face {
@@ -814,7 +1234,7 @@ pub fn get_block_slot(block_id: u16, meta: u8, face: BlockFace) -> (u8, Option<[
                 _ => if is_head { (197, None) } else { (194, None) },
             }
         },
-        30 => (13, None),
+        30 => (230, None),
         36 => {
             let top_slot = if (meta & 8) != 0 { 112 } else { 111 };
             (get_piston_face_slot(meta, face, top_slot), None)
@@ -834,17 +1254,72 @@ pub fn get_block_slot(block_id: u16, meta: u8, face: BlockFace) -> (u8, Option<[
             _ => (1, None),
         },
         48 => (5, None),
+        51 => (222, None),
         52 => (129, None),
         53 => (6, None),
-        54 | 146 => (6, None),
+        54 => {
+            let front_face = match meta & 7 {
+                2 => BlockFace::North,
+                3 => BlockFace::South,
+                4 => BlockFace::West,
+                5 => BlockFace::East,
+                _ => BlockFace::North,
+            };
+            if face == BlockFace::Top || face == BlockFace::Bottom {
+                (256, None)
+            } else if face == front_face {
+                (258, None)
+            } else {
+                (257, None)
+            }
+        },
+        146 => {
+            let front_face = match meta & 7 {
+                2 => BlockFace::North,
+                3 => BlockFace::South,
+                4 => BlockFace::West,
+                5 => BlockFace::East,
+                _ => BlockFace::North,
+            };
+            if face == BlockFace::Top || face == BlockFace::Bottom {
+                (259, None)
+            } else if face == front_face {
+                (261, None)
+            } else {
+                (260, None)
+            }
+        },
         59 => (81, Some([0.48, 0.75, 0.35])),
         60 => (4, None),
+        63 | 68 => (6, None),
         67 => (5, None),
-        84 => (58, None),
+        84 => match face {
+            BlockFace::Top => (238, None),
+            _ => (239, None),
+        },
         85 => (6, None),
+        90 => (220, None),
         92 => (27, None),
-        95 => (177 + (meta.min(15) as u8), None),
+        95 => (177 + (meta.min(15) as u16), None),
         97 => (1, None),
+        99 => match meta {
+            10 => match face {
+                BlockFace::Top | BlockFace::Bottom => (226, None),
+                _ => (225, None),
+            },
+            15 => (225, None),
+            0 => (226, None),
+            _ => (223, None),
+        },
+        100 => match meta {
+            10 => match face {
+                BlockFace::Top | BlockFace::Bottom => (226, None),
+                _ => (225, None),
+            },
+            15 => (225, None),
+            0 => (226, None),
+            _ => (224, None),
+        },
         102 => (13, None),
         104 | 105 => (81, Some([0.48, 0.75, 0.35])),
         106 => (12, Some([0.30, 0.68, 0.20])),
@@ -855,10 +1330,27 @@ pub fn get_block_slot(block_id: u16, meta: u8, face: BlockFace) -> (u8, Option<[
         113 => (172, None),
         114 => (172, None),
         115 => (91, None),
-        116 => (49, None),
-        117 => (5, None),
-        118 => (59, None),
-        120 => (174, None),
+        116 => match face {
+            BlockFace::Top => (253, None),
+            BlockFace::Bottom => (255, None),
+            _ => (254, None),
+        },
+        117 => match face {
+            BlockFace::Top => (237, None),
+            BlockFace::Bottom => (20, None),
+            _ => (236, None),
+        },
+        118 => match face {
+            BlockFace::Top => (233, None),
+            BlockFace::Bottom => (235, None),
+            _ => (232, None),
+        },
+        119 => (221, None),
+        120 => match face {
+            BlockFace::Top => (217, None),
+            BlockFace::Bottom => (174, None),
+            _ => (218, None),
+        },
         122 => (20, None),
         125 => match meta & 7 {
             1 => (35, None),
@@ -870,7 +1362,22 @@ pub fn get_block_slot(block_id: u16, meta: u8, face: BlockFace) -> (u8, Option<[
         },
         127 => (44, None),
         128 => (24, None),
-        130 => (174, None),
+        130 => {
+            let front_face = match meta & 7 {
+                2 => BlockFace::North,
+                3 => BlockFace::South,
+                4 => BlockFace::West,
+                5 => BlockFace::East,
+                _ => BlockFace::North,
+            };
+            if face == BlockFace::Top || face == BlockFace::Bottom {
+                (262, None)
+            } else if face == front_face {
+                (264, None)
+            } else {
+                (263, None)
+            }
+        },
         131 | 132 => (6, None),
         134 => (35, None),
         135 => (36, None),
@@ -881,43 +1388,94 @@ pub fn get_block_slot(block_id: u16, meta: u8, face: BlockFace) -> (u8, Option<[
         140 => (56, None),
         141 | 142 => (81, Some([0.48, 0.75, 0.35])),
         144 => (20, None),
-        145 => (59, None),
-        151 => (6, None),
+        145 => {
+            let damage = ((meta >> 2) & 3).min(2) as u16;
+            if face == BlockFace::Top {
+                (247 + damage, None)
+            } else {
+                (246, None)
+            }
+        },
+        151 | 178 => match face {
+            BlockFace::Top => (251, None),
+            BlockFace::Bottom => (6, None),
+            _ => (252, None),
+        },
         154 => (59, None),
         156 => match face {
             BlockFace::Top => (131, None),
             BlockFace::Bottom => (132, None),
             _ => (130, None),
         },
-        158 => match face {
-            BlockFace::North => (55, None),
-            BlockFace::Top | BlockFace::Bottom => (53, None),
-            _ => (54, None),
+        158 => {
+            let facing = match meta & 7 {
+                0 => BlockFace::Bottom,
+                1 => BlockFace::Top,
+                2 => BlockFace::North,
+                3 => BlockFace::South,
+                4 => BlockFace::West,
+                _ => BlockFace::East,
+            };
+            if face == facing {
+                if facing == BlockFace::Top || facing == BlockFace::Bottom {
+                    (245, None)
+                } else {
+                    (244, None)
+                }
+            } else if face == BlockFace::Top || face == BlockFace::Bottom {
+                (53, None)
+            } else {
+                (54, None)
+            }
         },
-        160 => (177 + (meta.min(15) as u8), None),
+        160 => (177 + (meta.min(15) as u16), None),
+        161 => match meta & 1 {
+            0 => (227, Some([0.48, 0.75, 0.35])),
+            _ => (228, Some([0.48, 0.75, 0.35])),
+        },
         163 => (38, None),
         164 => (39, None),
         165 => (12, Some([0.48, 0.75, 0.35])),
+        166 => (0, None),
         174 => (199, None),
-        175 => match meta & 7 {
-            0 => (31, None),
-            1 => (93, None),
-            2 => (33, Some([0.48, 0.75, 0.35])),
-            3 => (92, Some([0.48, 0.75, 0.35])),
-            4 => (32, None),
-            _ => (98, None),
+        175 => {
+            let is_top = (meta & 8) != 0;
+            let variant = meta & 7;
+            match (variant, is_top) {
+                (0, false) => (265, None),
+                (0, true) => (266, None),
+                (1, false) => (269, None),
+                (1, true) => (270, None),
+                (2, false) => (271, Some([0.48, 0.75, 0.35])),
+                (2, true) => (272, Some([0.48, 0.75, 0.35])),
+                (3, false) => (273, Some([0.48, 0.75, 0.35])),
+                (3, true) => (274, Some([0.48, 0.75, 0.35])),
+                (4, false) => (275, None),
+                (4, true) => (276, None),
+                _ => if is_top { (278, None) } else { (277, None) },
+            }
         },
         _ => (5, None),
     }
 }
 
-pub fn get_slot_uv(slot: u8) -> (f32, f32, f32, f32) {
+pub fn get_pane_top_slot(block_id: u16, meta: u8) -> u16 {
+    match block_id {
+        102 => 200,
+        160 => 201 + (meta.min(15) as u16),
+        101 => 129,
+        _ => get_block_slot(block_id, meta, BlockFace::Top).0,
+    }
+}
+
+pub fn get_slot_uv(slot: u16) -> (f32, f32, f32, f32) {
     let col = ((slot as u32) % TILES_PER_ROW) as f32;
     let row = ((slot as u32) / TILES_PER_ROW) as f32;
+    let tiles_per_col = (ATLAS_HEIGHT / TILE_SIZE) as f32;
     let u0 = col / (TILES_PER_ROW as f32);
-    let v0 = row / (TILES_PER_ROW as f32);
+    let v0 = row / tiles_per_col;
     let u1 = (col + 1.0) / (TILES_PER_ROW as f32);
-    let v1 = (row + 1.0) / (TILES_PER_ROW as f32);
+    let v1 = (row + 1.0) / tiles_per_col;
     let eps = 0.0001;
     (u0 + eps, v0 + eps, u1 - eps, v1 - eps)
 }
@@ -928,6 +1486,39 @@ pub fn get_water_frame_rgba(frame: usize, is_flow: bool) -> [u8; 16 * 16 * 4] {
     } else {
         crate::resource_pack::get_texture("textures/blocks/water_still.png", WATER_BYTES)
     };
+    let img = match image::load_from_memory_with_format(&bytes, image::ImageFormat::Png) {
+        Ok(i) => i.to_rgba8(),
+        Err(_) => return [0u8; 16 * 16 * 4],
+    };
+
+    let (src_w, src_h) = img.dimensions();
+    if src_w == 0 || src_h == 0 {
+        return [0u8; 16 * 16 * 4];
+    }
+    let total_frames = (src_h / src_w).max(1);
+    let frame_idx = (frame as u32) % total_frames;
+    let frame_y = frame_idx * src_w;
+    let cropped = image::imageops::crop_imm(&img, 0, frame_y, src_w, src_w).to_image();
+    let final_tile = if cropped.width() == 16 && cropped.height() == 16 {
+        cropped
+    } else {
+        image::imageops::resize(&cropped, 16, 16, image::imageops::FilterType::Nearest)
+    };
+
+    let mut tile = [0u8; 16 * 16 * 4];
+    for y in 0..16 {
+        for x in 0..16 {
+            let px = final_tile.get_pixel(x, y);
+            let idx = ((y * 16 + x) * 4) as usize;
+            tile[idx..idx + 4].copy_from_slice(&px.0);
+        }
+    }
+
+    tile
+}
+
+pub fn get_fire_frame_rgba(frame: usize) -> [u8; 16 * 16 * 4] {
+    let bytes = crate::resource_pack::get_texture("textures/blocks/fire_layer_0.png", FIRE_LAYER_0_BYTES);
     let img = match image::load_from_memory_with_format(&bytes, image::ImageFormat::Png) {
         Ok(i) => i.to_rgba8(),
         Err(_) => return [0u8; 16 * 16 * 4],
@@ -1153,10 +1744,16 @@ mod tests {
         assert_eq!(get_block_slot(160, 2, BlockFace::North).0, 179); // Magenta stained glass pane
         for meta in 0..16 {
             let (slot_g, _) = get_block_slot(95, meta, BlockFace::North);
-            assert_eq!(slot_g, 177 + meta as u8);
+            assert_eq!(slot_g, 177 + meta as u16);
             let (slot_p, _) = get_block_slot(160, meta, BlockFace::North);
-            assert_eq!(slot_p, 177 + meta as u8);
+            assert_eq!(slot_p, 177 + meta as u16);
         }
+
+        // Glass pane top slot
+        assert_eq!(get_pane_top_slot(102, 0), 200);
+        assert_eq!(get_pane_top_slot(101, 0), 129);
+        assert_eq!(get_pane_top_slot(160, 0), 201); // White pane top
+        assert_eq!(get_pane_top_slot(160, 15), 216); // Black pane top
 
         // Bed (Block 26)
         assert_eq!(get_block_slot(26, 0, BlockFace::Top).0, 195); // Foot top
@@ -1170,6 +1767,119 @@ mod tests {
 
         // Packed Ice (Block 174)
         assert_eq!(get_block_slot(174, 0, BlockFace::North).0, 199);
+
+        // Note block & Jukebox
+        assert_eq!(get_block_slot(25, 0, BlockFace::North).0, 229);
+        assert_eq!(get_block_slot(84, 0, BlockFace::Top).0, 238);
+        assert_eq!(get_block_slot(84, 0, BlockFace::North).0, 239);
+
+        // Web (Cobweb)
+        assert_eq!(get_block_slot(30, 0, BlockFace::North).0, 230);
+
+        // Furnace unlit (Block 61) & lit (Block 62)
+        // Default / meta 2: faces North
+        assert_eq!(get_block_slot(61, 2, BlockFace::North).0, 55);
+        assert_eq!(get_block_slot(61, 2, BlockFace::South).0, 54);
+        assert_eq!(get_block_slot(61, 2, BlockFace::Top).0, 53);
+        // Meta 4: faces West
+        assert_eq!(get_block_slot(61, 4, BlockFace::West).0, 55);
+        assert_eq!(get_block_slot(61, 4, BlockFace::North).0, 54);
+        // Block 62: lit furnace has front on slot 231
+        assert_eq!(get_block_slot(62, 2, BlockFace::North).0, 231);
+        assert_eq!(get_block_slot(62, 2, BlockFace::South).0, 54);
+
+        // Brewing Stand (Block 117)
+        assert_eq!(get_block_slot(117, 0, BlockFace::Top).0, 237);
+        assert_eq!(get_block_slot(117, 0, BlockFace::North).0, 236);
+
+        // Cauldron (Block 118)
+        assert_eq!(get_block_slot(118, 0, BlockFace::Top).0, 233);
+        assert_eq!(get_block_slot(118, 0, BlockFace::Bottom).0, 235);
+        assert_eq!(get_block_slot(118, 0, BlockFace::North).0, 232);
+
+        // Pumpkin (86) and Jack o'Lantern (91)
+        assert_eq!(get_block_slot(86, 2, BlockFace::North).0, 76);
+        assert_eq!(get_block_slot(86, 2, BlockFace::South).0, 75);
+        assert_eq!(get_block_slot(86, 0, BlockFace::South).0, 76);
+        assert_eq!(get_block_slot(91, 2, BlockFace::North).0, 240);
+        assert_eq!(get_block_slot(91, 0, BlockFace::South).0, 240);
+
+        // Rail (66) straight vs curved
+        assert_eq!(get_block_slot(66, 0, BlockFace::Top).0, 121);
+        assert_eq!(get_block_slot(66, 6, BlockFace::Top).0, 241);
+        assert_eq!(get_block_slot(66, 9, BlockFace::Top).0, 241);
+
+        // Dispenser (23) horizontal & vertical
+        assert_eq!(get_block_slot(23, 2, BlockFace::North).0, 242);
+        assert_eq!(get_block_slot(23, 2, BlockFace::Top).0, 53);
+        assert_eq!(get_block_slot(23, 2, BlockFace::South).0, 54);
+        assert_eq!(get_block_slot(23, 1, BlockFace::Top).0, 243);
+        assert_eq!(get_block_slot(23, 0, BlockFace::Bottom).0, 243);
+
+        // Dropper (158) horizontal & vertical
+        assert_eq!(get_block_slot(158, 2, BlockFace::North).0, 244);
+        assert_eq!(get_block_slot(158, 2, BlockFace::Top).0, 53);
+        assert_eq!(get_block_slot(158, 2, BlockFace::South).0, 54);
+        assert_eq!(get_block_slot(158, 1, BlockFace::Top).0, 245);
+        assert_eq!(get_block_slot(158, 0, BlockFace::Bottom).0, 245);
+
+        // End Portal (119)
+        assert_eq!(get_block_slot(119, 0, BlockFace::Top).0, 221);
+
+        // Chests (54, 146, 130)
+        assert_eq!(get_block_slot(54, 2, BlockFace::Top).0, 256);
+        assert_eq!(get_block_slot(54, 2, BlockFace::North).0, 258);
+        assert_eq!(get_block_slot(54, 2, BlockFace::South).0, 257);
+        assert_eq!(get_block_slot(146, 2, BlockFace::Top).0, 259);
+        assert_eq!(get_block_slot(146, 2, BlockFace::North).0, 261);
+        assert_eq!(get_block_slot(130, 2, BlockFace::Top).0, 262);
+        assert_eq!(get_block_slot(130, 2, BlockFace::North).0, 264);
+
+        // Beacon (138)
+        assert_eq!(get_block_slot(138, 0, BlockFace::North).0, 13);
+
+        // Anvil (145)
+        assert_eq!(get_block_slot(145, 0, BlockFace::Top).0, 247);
+        assert_eq!(get_block_slot(145, 4, BlockFace::Top).0, 248);
+        assert_eq!(get_block_slot(145, 8, BlockFace::Top).0, 249);
+        assert_eq!(get_block_slot(145, 0, BlockFace::North).0, 246);
+
+        // Daylight Detector (151 & 178)
+        assert_eq!(get_block_slot(151, 0, BlockFace::Top).0, 251);
+        assert_eq!(get_block_slot(151, 0, BlockFace::North).0, 252);
+        assert_eq!(get_block_slot(151, 0, BlockFace::Bottom).0, 6);
+        assert_eq!(get_block_slot(178, 0, BlockFace::Top).0, 251);
+
+        // Enchanting Table (116)
+        assert_eq!(get_block_slot(116, 0, BlockFace::Top).0, 253);
+        assert_eq!(get_block_slot(116, 0, BlockFace::North).0, 254);
+        assert_eq!(get_block_slot(116, 0, BlockFace::Bottom).0, 255);
+
+        // Sunflower & Double Plants (175)
+        assert_eq!(get_block_slot(175, 0, BlockFace::North).0, 265); // Sunflower bottom
+        assert_eq!(get_block_slot(175, 8, BlockFace::North).0, 266); // Sunflower top
+        assert_eq!(get_block_slot(175, 4, BlockFace::North).0, 275); // Rose bottom
+        assert_eq!(get_block_slot(175, 12, BlockFace::North).0, 276); // Rose top
+    }
+
+    #[test]
+    fn test_inspect_fire_and_others() {
+        let atlas = build_block_atlas();
+        let (u0, v0, u1, v1) = get_slot_uv(222);
+        assert!(u1 > u0 && v1 > v0);
+        let col = 222 % TILES_PER_ROW;
+        let row = 222 / TILES_PER_ROW;
+        let base_x = col * TILE_SIZE;
+        let base_y = row * TILE_SIZE;
+        let idx = ((base_y + 8) * ATLAS_WIDTH + (base_x + 8)) * 4;
+        let center_px = &atlas[idx as usize..idx as usize + 4];
+        assert_eq!(center_px[3], 255); // Alpha is solid
+
+        // Verify animated fire frame extraction
+        let frame_0 = get_fire_frame_rgba(0);
+        let frame_5 = get_fire_frame_rgba(5);
+        assert_eq!(frame_0.len(), 1024);
+        assert_eq!(frame_5.len(), 1024);
     }
 }
 

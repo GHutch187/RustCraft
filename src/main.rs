@@ -100,12 +100,188 @@ pub fn parse_slot_data(buf: &[u8], offset: &mut usize) -> Option<SlotItem> {
     Some(SlotItem { item_id, count, damage })
 }
 
+pub fn item_to_block_id(item_id: i16) -> Option<u16> {
+    if item_id > 0 && item_id < 256 {
+        return Some(item_id as u16);
+    }
+    match item_id {
+        259 => Some(51),  // Flint and Steel -> Fire
+        295 => Some(59),  // Wheat Seeds -> Wheat Crops
+        323 => Some(63),  // Sign -> Standing Sign
+        324 => Some(64),  // Wooden Door -> Wooden Door Block
+        326 => Some(8),   // Water Bucket -> Flowing Water
+        327 => Some(10),  // Lava Bucket -> Flowing Lava
+        330 => Some(71),  // Iron Door -> Iron Door Block
+        331 => Some(55),  // Redstone Dust -> Redstone Wire
+        338 => Some(83),  // Reeds / Sugar Canes -> Sugar Canes Block
+        354 => Some(92),  // Cake -> Cake Block
+        355 => Some(26),  // Bed -> Bed Block
+        356 => Some(93),  // Redstone Repeater -> Unpowered Repeater Block
+        361 => Some(104), // Pumpkin Seeds -> Pumpkin Stem
+        362 => Some(105), // Melon Seeds -> Melon Stem
+        372 => Some(115), // Nether Wart -> Nether Wart Block
+        379 => Some(117), // Brewing Stand -> Brewing Stand Block
+        380 => Some(118), // Cauldron -> Cauldron Block
+        390 => Some(140), // Flower Pot -> Flower Pot Block
+        391 => Some(141), // Carrot -> Carrots Block
+        392 => Some(142), // Potato -> Potatoes Block
+        404 => Some(149), // Comparator -> Unpowered Comparator Block
+        _ => None,
+    }
+}
+
+pub fn check_and_activate_end_portal(
+    world: &mut World,
+    fx: i32,
+    fy: i32,
+    fz: i32,
+    mesh_manager: &mut WorldMeshManager,
+) {
+    for dx in -2..=2 {
+        for dz in -2..=2 {
+            let cx = fx + dx;
+            let cz = fz + dz;
+
+            let frames = [
+                (cx - 1, cz - 2), (cx, cz - 2), (cx + 1, cz - 2),
+                (cx - 1, cz + 2), (cx, cz + 2), (cx + 1, cz + 2),
+                (cx - 2, cz - 1), (cx - 2, cz), (cx - 2, cz + 1),
+                (cx + 2, cz - 1), (cx + 2, cz), (cx + 2, cz + 1),
+            ];
+
+            let mut valid = true;
+            for (px, pz) in frames {
+                let b = world.get_block(px, fy, pz);
+                if b.id != 120 || (b.meta & 4) == 0 {
+                    valid = false;
+                    break;
+                }
+            }
+
+            if valid {
+                for ix in (cx - 1)..=(cx + 1) {
+                    for iz in (cz - 1)..=(cz + 1) {
+                        world.set_block(
+                            ix,
+                            fy,
+                            iz,
+                            Block {
+                                id: 119,
+                                meta: 0,
+                                block_light: 15,
+                                sky_light: 15,
+                            },
+                        );
+                        let mcx = ix.div_euclid(16);
+                        let mcz = iz.div_euclid(16);
+                        mesh_manager.mark_dirty(mcx, mcz);
+                    }
+                }
+                return;
+            }
+        }
+    }
+}
+
 pub fn is_interactive_block(id: u16) -> bool {
     matches!(
         id,
         23 | 25 | 26 | 54 | 58 | 61 | 62 | 64 | 69 | 71 | 77 | 84 | 92 | 93 | 94 | 96 | 107
         | 116 | 117 | 130 | 143 | 145 | 146 | 149 | 150 | 151 | 154 | 158 | 167
     )
+}
+
+pub fn compute_rail_meta(world: &World, x: i32, y: i32, z: i32, rail_id: u16) -> u8 {
+    let is_r = |bx, by, bz| {
+        let b = world.get_block(bx, by, bz);
+        crate::mesh::is_rail(b.id)
+    };
+    let has_n = is_r(x, y, z - 1) || is_r(x, y + 1, z - 1) || is_r(x, y - 1, z - 1);
+    let has_s = is_r(x, y, z + 1) || is_r(x, y + 1, z + 1) || is_r(x, y - 1, z + 1);
+    let has_w = is_r(x - 1, y, z) || is_r(x - 1, y + 1, z) || is_r(x - 1, y - 1, z);
+    let has_e = is_r(x + 1, y, z) || is_r(x + 1, y + 1, z) || is_r(x + 1, y - 1, z);
+
+    if rail_id == 66 {
+        if has_s && has_e {
+            return 6;
+        }
+        if has_s && has_w {
+            return 7;
+        }
+        if has_n && has_w {
+            return 8;
+        }
+        if has_n && has_e {
+            return 9;
+        }
+    }
+    if has_e || has_w {
+        1
+    } else {
+        0
+    }
+}
+
+pub fn update_neighbor_rails(
+    world: &mut World,
+    x: i32,
+    y: i32,
+    z: i32,
+    mesh_manager: &mut WorldMeshManager,
+) {
+    for (nx, nz) in [(x, z - 1), (x, z + 1), (x - 1, z), (x + 1, z)] {
+        for ny in [y, y + 1, y - 1] {
+            let mut nb = world.get_block(nx, ny, nz);
+            if nb.id == 66 {
+                let new_m = compute_rail_meta(world, nx, ny, nz, nb.id);
+                if new_m != nb.meta {
+                    nb.meta = new_m;
+                    world.set_block(nx, ny, nz, nb);
+                    mesh_manager.mark_dirty(nx.div_euclid(16), nz.div_euclid(16));
+                }
+            }
+        }
+    }
+}
+
+pub fn update_neighbor_redstone(
+    world: &mut World,
+    x: i32,
+    y: i32,
+    z: i32,
+    mesh_manager: &mut WorldMeshManager,
+) {
+    let check_power = |w: &World, lx: i32, ly: i32, lz: i32| -> bool {
+        let dirs = [(1,0,0), (-1,0,0), (0,1,0), (0,-1,0), (0,0,1), (0,0,-1)];
+        for (dx, dy, dz) in dirs {
+            let b = w.get_block(lx + dx, ly + dy, lz + dz);
+            if b.id == 152 || b.id == 76 { // Redstone Block or Redstone Torch (On)
+                return true;
+            }
+        }
+        false
+    };
+
+    let mut to_update = Vec::new();
+    let dirs = [(1,0,0), (-1,0,0), (0,1,0), (0,-1,0), (0,0,1), (0,0,-1)];
+    for (dx, dy, dz) in dirs {
+        let nx = x + dx;
+        let ny = y + dy;
+        let nz = z + dz;
+        let nb = world.get_block(nx, ny, nz);
+        if nb.id == 123 || nb.id == 124 {
+            let has_power = check_power(world, nx, ny, nz);
+            let target_id = if has_power { 124 } else { 123 };
+            if nb.id != target_id {
+                to_update.push((nx, ny, nz, target_id, nb.meta));
+            }
+        }
+    }
+
+    for (nx, ny, nz, id, meta) in to_update {
+        world.set_block(nx, ny, nz, Block { id, meta, sky_light: 0, block_light: 0 });
+        mesh_manager.mark_dirty(nx.div_euclid(16), nz.div_euclid(16));
+    }
 }
 
 pub struct PlayerState {
@@ -297,6 +473,50 @@ impl ApplicationHandler for App {
                         rs.upload_chunk_mesh(mcx, mcz, &mesh_data);
                     }
 
+                    // Build dynamic enchanting table book models facing the player
+                    {
+                        let w = self.world.lock().unwrap();
+                        let mut book_mesh = mesh::MeshData::new();
+                        let player_x = p_x as f32;
+                        let player_z = p_z as f32;
+                        for &(tx, ty, tz) in &w.enchanting_tables {
+                            let ftx = tx as f32;
+                            let fty = ty as f32;
+                            let ftz = tz as f32;
+                            let dx = player_x - (ftx + 0.5);
+                            let dz = player_z - (ftz + 0.5);
+                            let dist = (dx * dx + dz * dz).sqrt();
+                            if dist < 48.0 {
+                                let book_yaw = (dx).atan2(dz);
+                                // Minecraft: opens within 3 blocks
+                                let open_factor = if dist <= 2.5 {
+                                    1.0
+                                } else if dist <= 3.5 {
+                                    3.5 - dist
+                                } else {
+                                    0.0
+                                };
+                                
+                                let block = w.get_block(tx, ty, tz);
+                                let above = w.get_block(tx, ty + 1, tz);
+                                let sky = (block.sky_light.max(above.sky_light) as f32 / 15.0).clamp(0.0, 1.0);
+                                let blk = (block.block_light.max(above.block_light) as f32 / 15.0).clamp(0.0, 1.0);
+                                
+                                mesh::build_enchanting_book_model(
+                                    &mut book_mesh,
+                                    ftx,
+                                    fty,
+                                    ftz,
+                                    book_yaw,
+                                    open_factor,
+                                    world_time as f32,
+                                    [sky, blk, 1.0],
+                                );
+                            }
+                        }
+                        rs.upload_entities_mesh(&book_mesh);
+                    }
+
                     if show_debug {
                         let floor_x = p_x.floor() as i32;
                         let floor_y = p_y.floor() as i32;
@@ -358,7 +578,15 @@ impl ApplicationHandler for App {
                             let dir = raycast::get_look_vector(yaw, pitch);
                             if let Some(hit) = raycast::raycast_world(&w, eye_pos, dir, 5.0) {
                                 let block = w.get_block(hit.block_x, hit.block_y, hit.block_z);
-                                lines.push(format!("Looking at: {}, {}, {} (id: {})", hit.block_x, hit.block_y, hit.block_z, block.id));
+                                lines.push(format!("Looking at: {}, {}, {} (id: {}, {})", hit.block_x, hit.block_y, hit.block_z, block.id, block.name()));
+                            }
+                        }
+
+                        {
+                            let p = self.player.lock().unwrap();
+                            if let Some(Some(item)) = p.hotbar.get(p.held_slot as usize) {
+                                let item_name = crate::world::get_item_name(item.item_id);
+                                lines.push(format!("Held item: {} (id: {}, count: {})", item_name, item.item_id, item.count));
                             }
                         }
 
@@ -560,6 +788,7 @@ impl ApplicationHandler for App {
                                     let cx = hit.block_x.div_euclid(16);
                                     let cz = hit.block_z.div_euclid(16);
                                     self.mesh_manager.mark_dirty(cx, cz);
+                                    update_neighbor_redstone(&mut w_mut, hit.block_x, hit.block_y, hit.block_z, &mut self.mesh_manager);
                                 } else {
                                     p.mining = MiningState {
                                         active: true,
@@ -623,23 +852,71 @@ impl ApplicationHandler for App {
                                 place_pkt.push(8);
                                 let _ = self.tx.try_send(place_pkt);
 
-                                if !is_interactive {
+                                if clicked_block.id == 120 && (clicked_block.meta & 4) == 0 && held.map_or(false, |it| it.item_id == 381) {
+                                    // Eye of Ender placed into frame
+                                    w.set_block(
+                                        hit.block_x,
+                                        hit.block_y,
+                                        hit.block_z,
+                                        Block {
+                                            id: 120,
+                                            meta: clicked_block.meta | 4,
+                                            block_light: clicked_block.block_light,
+                                            sky_light: clicked_block.sky_light,
+                                        },
+                                    );
+                                    let cx = hit.block_x.div_euclid(16);
+                                    let cz = hit.block_z.div_euclid(16);
+                                    self.mesh_manager.mark_dirty(cx, cz);
+                                    check_and_activate_end_portal(&mut w, hit.block_x, hit.block_y, hit.block_z, &mut self.mesh_manager);
+                                } else if !is_interactive {
                                     if let Some(item) = held {
-                                        if item.item_id > 0 && item.item_id < 256 {
+                                        if let Some(block_id) = item_to_block_id(item.item_id) {
+                                            let mut meta = if item.item_id < 256 {
+                                                (item.damage & 0x0F) as u8
+                                            } else {
+                                                0
+                                            };
+
+                                            let player_yaw = self.player.lock().unwrap().yaw;
+                                            if block_id == 86 || block_id == 91 {
+                                                // Minecraft pumpkin placement faces the player: (yaw * 4 / 360 + 2.5) & 3
+                                                let p_facing = (((player_yaw * 4.0 / 360.0 + 2.5).floor() as i32) % 4 + 4) % 4;
+                                                meta = p_facing as u8;
+                                            } else if block_id == 61 || block_id == 62 || block_id == 23 || block_id == 158 {
+                                                // Furnace / Dispenser / Dropper facing: 2=North, 3=South, 4=West, 5=East
+                                                let p_facing = (((player_yaw * 4.0 / 360.0 + 0.5).floor() as i32) % 4 + 4) % 4;
+                                                meta = match p_facing {
+                                                    0 => 3, // South
+                                                    1 => 4, // West
+                                                    2 => 2, // North
+                                                    3 => 5, // East
+                                                    _ => 2,
+                                                };
+                                            } else if crate::mesh::is_rail(block_id) {
+                                                meta = compute_rail_meta(&w, px, py, pz, block_id);
+                                            }
+
+                                            let existing = w.get_block(px, py, pz);
                                             w.set_block(
                                                 px,
                                                 py,
                                                 pz,
                                                 Block {
-                                                    id: item.item_id as u16,
-                                                    meta: (item.damage & 0x0F) as u8,
-                                                    block_light: 0,
-                                                    sky_light: 15,
+                                                    id: block_id,
+                                                    meta,
+                                                    block_light: existing.block_light,
+                                                    sky_light: existing.sky_light,
                                                 },
                                             );
                                             let cx = px.div_euclid(16);
                                             let cz = pz.div_euclid(16);
                                             self.mesh_manager.mark_dirty(cx, cz);
+
+                                            if crate::mesh::is_rail(block_id) {
+                                                update_neighbor_rails(&mut w, px, py, pz, &mut self.mesh_manager);
+                                            }
+                                            update_neighbor_redstone(&mut w, px, py, pz, &mut self.mesh_manager);
                                         }
                                     }
                                 }
@@ -1412,6 +1689,7 @@ async fn run_network_client(
 
                             let wx = chunk_x * 16 + local_x;
                             let wz = chunk_z * 16 + local_z;
+                            let existing = w.get_block(wx, y, wz);
                             w.set_block(
                                 wx,
                                 y,
@@ -1419,8 +1697,8 @@ async fn run_network_client(
                                 Block {
                                     id: block_id,
                                     meta: block_meta,
-                                    block_light: 0,
-                                    sky_light: 15,
+                                    block_light: existing.block_light,
+                                    sky_light: existing.sky_light,
                                 },
                             );
                         }
@@ -1443,6 +1721,7 @@ async fn run_network_client(
 
                 {
                     let mut w = world.lock().unwrap();
+                    let existing = w.get_block(bx, by, bz);
                     w.set_block(
                         bx,
                         by,
@@ -1450,8 +1729,8 @@ async fn run_network_client(
                         Block {
                             id: block_id,
                             meta: block_meta,
-                            block_light: 0,
-                            sky_light: 15,
+                            block_light: existing.block_light,
+                            sky_light: existing.sky_light,
                         },
                     );
                 }
@@ -1579,4 +1858,64 @@ async fn run_network_client(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_item_to_block_id() {
+        assert_eq!(item_to_block_id(1), Some(1)); // Stone block
+        assert_eq!(item_to_block_id(120), Some(120)); // End Portal Frame block
+        assert_eq!(item_to_block_id(259), Some(51)); // Flint and Steel -> Fire
+        assert_eq!(item_to_block_id(295), Some(59)); // Seeds -> Wheat
+        assert_eq!(item_to_block_id(324), Some(64)); // Wood Door
+        assert_eq!(item_to_block_id(326), Some(8)); // Water Bucket -> Water
+        assert_eq!(item_to_block_id(327), Some(10)); // Lava Bucket -> Lava
+        assert_eq!(item_to_block_id(330), Some(71)); // Iron Door
+        assert_eq!(item_to_block_id(331), Some(55)); // Redstone Dust -> Wire
+        assert_eq!(item_to_block_id(355), Some(26)); // Bed
+        assert_eq!(item_to_block_id(356), Some(93)); // Repeater
+        assert_eq!(item_to_block_id(381), None); // Eye of Ender (handled specially)
+        assert_eq!(item_to_block_id(404), Some(149)); // Comparator
+    }
+
+    #[test]
+    fn test_end_portal_activation() {
+        let mut world = World::new();
+        world.insert_chunk(ChunkColumn::new(0, 0));
+        let mut mesh_manager = WorldMeshManager::new();
+
+        // 3x3 portal at x: 4..=6, z: 4..=6, y: 64 (center is 5, 5)
+        let frames = [
+            (4, 3), (5, 3), (6, 3), // North
+            (4, 7), (5, 7), (6, 7), // South
+            (3, 4), (3, 5), (3, 6), // West
+            (7, 4), (7, 5), (7, 6), // East
+        ];
+
+        // Place 11 frames with eyes, 1 without eye
+        for (i, &(fx, fz)) in frames.iter().enumerate() {
+            let meta = if i == 0 { 0 } else { 4 };
+            world.set_block(fx, 64, fz, Block { id: 120, meta, block_light: 0, sky_light: 15 });
+        }
+
+        // Initially center is air (id: 0)
+        assert_eq!(world.get_block(5, 64, 5).id, 0);
+
+        // Place 12th eye on the first frame
+        let (fx, fz) = frames[0];
+        world.set_block(fx, 64, fz, Block { id: 120, meta: 4, block_light: 0, sky_light: 15 });
+        check_and_activate_end_portal(&mut world, fx, 64, fz, &mut mesh_manager);
+
+        // Now all 9 interior blocks must be activated End Portal (id: 119) with light level 15
+        for ix in 4..=6 {
+            for iz in 4..=6 {
+                let b = world.get_block(ix, 64, iz);
+                assert_eq!(b.id, 119, "Expected End Portal at {}, 64, {}", ix, iz);
+                assert_eq!(b.block_light, 15);
+            }
+        }
+    }
 }
